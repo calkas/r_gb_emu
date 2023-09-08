@@ -1,4 +1,5 @@
 use super::cpu_data::Registers;
+use crate::instructions;
 
 pub struct Cpu {
     pub register: Registers,
@@ -20,17 +21,32 @@ impl Cpu {
         }
     }
 
-    pub fn process(&self) {
+    pub fn process(&mut self) {
         let opcode = self.fetch_instruction();
-        self.decode();
-        self.execute();
+        self.execute(opcode);
+        self.register.pc += 1;
     }
 
     fn fetch_instruction(&self) -> u8 {
         self.memory[self.register.pc as usize]
     }
 
-    fn decode(&self) {}
+    fn execute(&mut self, opcode: u8) {
+        match opcode {
+            0x80 => {
+                let val = self.register.b;
+                instructions::arithmetic::add(&mut self.register, val, 0);
+                self.cycle += 4;
+            }
+            _ => println!("Nothing"),
+        }
+    }
 
-    fn execute(&self) {}
+    fn read_byte(&self, address: u16) -> u8 {
+        self.memory[address as usize]
+    }
+
+    fn write_byte(&mut self, address: u16, value: u8) {
+        self.memory[address as usize] = value;
+    }
 }
