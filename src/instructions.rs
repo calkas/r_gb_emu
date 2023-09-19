@@ -1,6 +1,7 @@
 pub mod load {}
 
 pub mod arithmetic {
+    use crate::cpu;
     use crate::cpu_data::Flags;
     use crate::cpu_data::Registers;
 
@@ -17,6 +18,19 @@ pub mod arithmetic {
             _ => 0,
         }
     }
+
+    pub fn get_reg_16bit_value(opcode:u8, regs: &Registers) -> u16 {
+        let reg_id = (opcode & 0xF0) >> 4;
+        match reg_id {
+            0 => regs.get_bc(),
+            1 => regs.get_de(),
+            2 => regs.get_hl(),
+            3 => regs.sp,
+            _ => 0,
+        }
+    }
+
+
 
     fn was_half_carry(reg: u8, value: u8) -> bool {
         ((reg & 0x0F) + (value & 0x0F)) & 0xF0 == 0x10
@@ -45,13 +59,57 @@ pub mod arithmetic {
 
         cpu_data.a = new_value;
     }
-    pub fn add_hl(cpu_data: &mut Registers, value: u8) {}
-    pub fn add_sp(cpu_data: &mut Registers, value: u8) {}
+    // To check proper calc
+    pub fn add_hl(cpu_data: &mut Registers, reg_value: u16) {
+        cpu_data.unset_flag(Flags::N);
+
+        let mut hl_reg_value = cpu_data.get_hl();
+
+        let (new_value, did_overflow) = hl_reg_value.overflowing_add(reg_value);
+
+        cpu_data.unset_flag(Flags::H);
+        cpu_data.unset_flag(Flags::C);
+
+        if did_overflow {
+            cpu_data.set_flag(Flags::C);
+        }
+
+        if was_half_carry(cpu_data.l, reg_value as u8) {
+            cpu_data.set_flag(Flags::H);
+        }
+
+        cpu_data.set_hl(new_value);
+    }
+    // To check proper calc
+    pub fn add_sp(cpu_data: &mut Registers, value: i8) {
+        cpu_data.unset_flag(Flags::Z);
+        cpu_data.unset_flag(Flags::N);
+
+        let mut sp_reg_val = cpu_data.sp;
+        let coverted_value = value as i8 as i16 as u16;
+
+        let (new_value, did_overflow) = sp_reg_val.overflowing_add(coverted_value);
+
+        cpu_data.unset_flag(Flags::H);
+        cpu_data.unset_flag(Flags::C);
+
+        if did_overflow {
+            cpu_data.set_flag(Flags::C);
+        }
+
+        if was_half_carry(cpu_data.sp as u8, value as u8) {
+            cpu_data.set_flag(Flags::H);
+        }
+
+        cpu_data.sp = new_value;
+    }
 
     pub fn adc(cpu_data: &mut Registers, value: u8) {
         let carry_val = if cpu_data.is_flag_set(Flags::C) { 1 } else { 0 };
         add(cpu_data, value, carry_val);
     }
+
+
 }
 #[cfg(test)]
 mod arithmetic_add_adc_ut {

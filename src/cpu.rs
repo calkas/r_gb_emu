@@ -24,20 +24,44 @@ impl Cpu {
     pub fn process(&mut self) {
         let opcode = self.fetch_instruction();
         self.execute(opcode);
-        self.register.pc += 1;
     }
 
-    fn fetch_instruction(&self) -> u8 {
-        self.memory[self.register.pc as usize]
+    fn fetch_instruction(&mut self) -> u8 {
+        let opcode = self.memory[self.register.pc as usize];
+        self.register.pc += 1;
+        opcode
     }
 
     fn execute(&mut self, opcode: u8) {
         match opcode {
+            // ADD
+            0x09 | 0x19 | 0x29 | 0x39 => {
+                let val = instructions::arithmetic::get_reg_16bit_value(opcode, &self.register);
+                instructions::arithmetic::add_hl(&mut self.register, val);
+                self.cycle += 8;
+            }
             0x80 | 0x81 | 0x82 | 0x83 | 0x84 |0x85 | 0x87 => {
                 let val = instructions::arithmetic::get_reg_8bit_value(opcode, &self.register);
                 instructions::arithmetic::add(&mut self.register, val, 0);
                 self.cycle += 4;
             }
+            0x86 => {
+                let val = self.read_byte(self.register.get_hl());
+                instructions::arithmetic::add(&mut self.register, val, 0);
+                self.cycle += 8;
+            }
+            0xC6 => {
+                let val = self.fetch_instruction();
+                instructions::arithmetic::add(&mut self.register, val, 0);
+                self.cycle += 8;
+            }
+            0xE8 => {
+                let val = self.fetch_instruction() as i8;
+                instructions::arithmetic::add_sp(&mut self.register, val);
+                self.cycle += 16;
+            }
+            // ADC
+
             _ => println!("Nothing"),
         }
     }
