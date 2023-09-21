@@ -36,6 +36,10 @@ pub mod arithmetic {
         ((reg & 0x0F) + (value & 0x0F)) & 0xF0 == 0x10
     }
 
+    fn was_half_carry_for_16_bits(reg: u16, value: u16) -> bool {
+        ((reg & 0xFFF) + (value & 0xFFF)) & 0x100) == 0x1000
+    }
+
     pub fn add(cpu_data: &mut Registers, value: u8, carry_value: u8) {
         cpu_data.unset_flag(Flags::N);
 
@@ -74,7 +78,7 @@ pub mod arithmetic {
             cpu_data.set_flag(Flags::C);
         }
 
-        if was_half_carry(cpu_data.l, reg_value as u8) {
+        if was_half_carry_for_16_bits(cpu_data.get_hl(), reg_value) {
             cpu_data.set_flag(Flags::H);
         }
 
@@ -97,7 +101,7 @@ pub mod arithmetic {
             cpu_data.set_flag(Flags::C);
         }
 
-        if was_half_carry(cpu_data.sp as u8, value as u8) {
+        if was_half_carry_for_16_bits(cpu_data.sp, value) {
             cpu_data.set_flag(Flags::H);
         }
 
