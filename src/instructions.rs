@@ -5,7 +5,7 @@ pub mod arithmetic {
     use crate::cpu_data::Flags;
     use crate::cpu_data::Registers;
 
-    pub fn get_reg_8bit_value(opcode:u8, regs: &Registers) -> u8 {
+    pub fn get_reg_8bit_value(opcode: u8, regs: &Registers) -> u8 {
         let reg_id = opcode & 7;
         match reg_id {
             0 => regs.b,
@@ -19,7 +19,7 @@ pub mod arithmetic {
         }
     }
 
-    pub fn get_reg_16bit_value(opcode:u8, regs: &Registers) -> u16 {
+    pub fn get_reg_16bit_value(opcode: u8, regs: &Registers) -> u16 {
         let reg_id = (opcode & 0xF0) >> 4;
         match reg_id {
             0 => regs.get_bc(),
@@ -30,14 +30,12 @@ pub mod arithmetic {
         }
     }
 
-
-
     fn was_half_carry(reg: u8, value: u8) -> bool {
-        ((reg & 0x0F) + (value & 0x0F)) & 0xF0 == 0x10
+        (((reg & 0x0F) + (value & 0x0F)) & 0xF0) == 0x10
     }
 
     fn was_half_carry_for_16_bits(reg: u16, value: u16) -> bool {
-        ((reg & 0xFFF) + (value & 0xFFF)) & 0x100) == 0x1000
+        (((reg & 0x0FFF) + (value & 0x0FFF)) & 0x100) == 0x1000
     }
 
     pub fn add(cpu_data: &mut Registers, value: u8, carry_value: u8) {
@@ -101,7 +99,7 @@ pub mod arithmetic {
             cpu_data.set_flag(Flags::C);
         }
 
-        if was_half_carry_for_16_bits(cpu_data.sp, value) {
+        if was_half_carry_for_16_bits(cpu_data.sp, coverted_value) {
             cpu_data.set_flag(Flags::H);
         }
 
@@ -112,8 +110,6 @@ pub mod arithmetic {
         let carry_val = if cpu_data.is_flag_set(Flags::C) { 1 } else { 0 };
         add(cpu_data, value, carry_val);
     }
-
-
 }
 #[cfg(test)]
 mod arithmetic_add_adc_ut {
@@ -166,9 +162,6 @@ mod arithmetic_add_adc_ut {
         assert!(!registers.is_flag_set(Flags::C));
         assert!(!registers.is_flag_set(Flags::N));
     }
-
-
-
 }
 
 pub mod logic {}
