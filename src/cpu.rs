@@ -62,6 +62,21 @@ impl Cpu {
                 self.cycle += 16;
             }
             // ADC
+            0x88 | 0x89 | 0x8A | 0x8B | 0x8C | 0x8D | 0x8F => {
+                let val = instructions::arithmetic::get_reg_8bit_value(opcode, &self.register);
+                instructions::arithmetic::adc(&mut self.register, val);
+                self.cycle += 4;
+            }
+            0xCE => {
+                let val = self.fetch_byte();
+                instructions::arithmetic::adc(&mut self.register, val);
+                self.cycle += 8;
+            }
+            0x8E => {
+                let val = self.read_byte(self.register.get_hl());
+                instructions::arithmetic::adc(&mut self.register, val);
+                self.cycle += 8;
+            }
             _ => println!("Nothing"),
         }
     }
