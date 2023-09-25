@@ -110,6 +110,35 @@ pub mod arithmetic {
         let carry_val = if cpu_data.is_flag_set(Flags::C) { 1 } else { 0 };
         add(cpu_data, value, carry_val);
     }
+
+    pub fn sub(cpu_data: &mut Registers, value: u8, carry_value: u8) {
+        cpu_data.set_flag(Flags::N);
+
+        let (new_value, did_overflow) = cpu_data.a.overflowing_sub(value + carry_value);
+
+        cpu_data.unset_flag(Flags::C);
+        cpu_data.unset_flag(Flags::Z);
+        cpu_data.unset_flag(Flags::H);
+
+        if did_overflow {
+            cpu_data.set_flag(Flags::C);
+        }
+
+        if new_value == 0 {
+            cpu_data.set_flag(Flags::Z);
+        }
+
+        if was_half_carry(cpu_data.a, value + carry_value) {
+            cpu_data.set_flag(Flags::H);
+        }
+
+        cpu_data.a = new_value;
+    }
+
+    pub fn sbc(cpu_data: &mut Registers, value: u8) {
+        let carry_val = if cpu_data.is_flag_set(Flags::C) { 1 } else { 0 };
+        sub(cpu_data, value, carry_val);
+    }
 }
 #[cfg(test)]
 mod arithmetic_add_adc_ut {
@@ -153,8 +182,9 @@ mod arithmetic_add_adc_ut {
         let mut registers = Registers::new();
         registers.a = 0x3D;
         registers.set_flag(Flags::N);
+        registers.set_flag(Flags::C);
 
-        add(&mut registers, 0x42, 1);
+        adc(&mut registers, 0x42);
 
         assert_eq!(0x80, registers.a);
         assert!(registers.is_flag_set(Flags::H));
@@ -163,7 +193,51 @@ mod arithmetic_add_adc_ut {
         assert!(!registers.is_flag_set(Flags::N));
     }
 }
+#[cfg(test)]
+mod arithmetic_sub_sbc_ut {
+    use super::arithmetic::*;
+    use crate::cpu_data::Flags;
+    use crate::cpu_data::Registers;
 
+    #[test]
+    fn sub_the_same_value_test() {
+        let mut registers = Registers::new();
+        registers.a = 0x3E;
+        sub(&mut registers, 0x3E, 0);
+        assert_eq!(0, registers.a);
+
+        assert!(!registers.is_flag_set(Flags::C));
+        assert!(registers.is_flag_set(Flags::H));
+        assert!(registers.is_flag_set(Flags::Z));
+        assert!(registers.is_flag_set(Flags::N));
+    }
+    #[test]
+    fn sub_overflow_test() {
+        let mut registers = Registers::new();
+        registers.a = 16;
+        sub(&mut registers, 18, 0);
+        assert_eq!(254, registers.a);
+
+        assert!(registers.is_flag_set(Flags::C));
+        assert!(!registers.is_flag_set(Flags::H));
+        assert!(!registers.is_flag_set(Flags::Z));
+        assert!(registers.is_flag_set(Flags::N));
+    }
+    #[test]
+    fn sbc_carry_flag_set_test() {
+        let mut registers = Registers::new();
+        registers.a = 77;
+        registers.set_flag(Flags::C);
+        sbc(&mut registers, 7);
+
+        assert_eq!(69, registers.a);
+
+        assert!(!registers.is_flag_set(Flags::C));
+        assert!(registers.is_flag_set(Flags::H));
+        assert!(!registers.is_flag_set(Flags::Z));
+        assert!(registers.is_flag_set(Flags::N));
+    }
+}
 pub mod logic {}
 pub mod rotate_and_shift {}
 pub mod single_bit_operation {}

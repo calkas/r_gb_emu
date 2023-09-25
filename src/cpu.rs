@@ -35,7 +35,7 @@ impl Cpu {
 
     fn execute(&mut self, opcode: u8) {
         match opcode {
-            // ADD
+            // .::ADD operation::.
             0x09 | 0x19 | 0x29 | 0x39 => {
                 let val = instructions::arithmetic::get_reg_16bit_value(opcode, &self.register);
                 instructions::arithmetic::add_hl(&mut self.register, val);
@@ -61,7 +61,7 @@ impl Cpu {
                 instructions::arithmetic::add_sp(&mut self.register, val);
                 self.cycle += 16;
             }
-            // ADC
+            // .::ADC operation::.
             0x88 | 0x89 | 0x8A | 0x8B | 0x8C | 0x8D | 0x8F => {
                 let val = instructions::arithmetic::get_reg_8bit_value(opcode, &self.register);
                 instructions::arithmetic::adc(&mut self.register, val);
@@ -75,6 +75,39 @@ impl Cpu {
             0x8E => {
                 let val = self.read_byte(self.register.get_hl());
                 instructions::arithmetic::adc(&mut self.register, val);
+                self.cycle += 8;
+            }
+            // .::SUB operation::.
+            0x90 | 0x91 | 0x92 | 0x93 | 0x94 | 0x95 | 0x97 => {
+                let val = instructions::arithmetic::get_reg_8bit_value(opcode, &self.register);
+                instructions::arithmetic::sub(&mut self.register, val, 0);
+                self.cycle += 4;
+            }
+            0x96 => {
+                let val = self.read_byte(self.register.get_hl());
+                instructions::arithmetic::sub(&mut self.register, val, 0);
+                self.cycle += 8;
+            }
+            0xD6 => {
+                let val = self.fetch_byte();
+                instructions::arithmetic::sub(&mut self.register, val, 0);
+                self.cycle += 8;
+            }
+
+            // .::SBC operation::.
+            0x99 | 0x9A | 0x9B | 0x9C | 0x9D | 0x9F => {
+                let val = instructions::arithmetic::get_reg_8bit_value(opcode, &self.register);
+                instructions::arithmetic::sbc(&mut self.register, val);
+                self.cycle += 4;
+            }
+            0x9E => {
+                let val = self.read_byte(self.register.get_hl());
+                instructions::arithmetic::sbc(&mut self.register, val);
+                self.cycle += 8;
+            }
+            0xDE => {
+                let val = self.fetch_byte();
+                instructions::arithmetic::sbc(&mut self.register, val);
                 self.cycle += 8;
             }
             _ => println!("Nothing"),
