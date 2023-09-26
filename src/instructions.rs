@@ -139,9 +139,59 @@ pub mod arithmetic {
         let carry_val = if cpu_data.is_flag_set(Flags::C) { 1 } else { 0 };
         sub(cpu_data, value, carry_val);
     }
+
+    pub fn and(cpu_data: &mut Registers, value: u8) {
+        cpu_data.unset_flag(Flags::N);
+        cpu_data.set_flag(Flags::H);
+        cpu_data.unset_flag(Flags::C);
+
+        let result: u8 = cpu_data.a & value;
+
+        cpu_data.unset_flag(Flags::Z);
+
+        if result == 0 {
+            cpu_data.set_flag(Flags::Z);
+        }
+        cpu_data.a = result;
+    }
+
+    pub fn xor(cpu_data: &mut Registers, value: u8) {
+        cpu_data.unset_flag(Flags::N);
+        cpu_data.unset_flag(Flags::H);
+        cpu_data.unset_flag(Flags::C);
+
+        let result: u8 = cpu_data.a ^ value;
+        cpu_data.unset_flag(Flags::Z);
+
+        if result == 0 {
+            cpu_data.set_flag(Flags::Z);
+        }
+        cpu_data.a = result;
+    }
+
+    pub fn or(cpu_data: &mut Registers, value: u8) {
+        cpu_data.unset_flag(Flags::N);
+        cpu_data.unset_flag(Flags::H);
+        cpu_data.unset_flag(Flags::C);
+
+        let result: u8 = cpu_data.a | value;
+
+        cpu_data.unset_flag(Flags::Z);
+
+        if result == 0 {
+            cpu_data.set_flag(Flags::Z);
+        }
+        cpu_data.a = result;
+    }
+
+    pub fn cp(cpu_data: &mut Registers, value: u8) {
+        let saved_acc = cpu_data.a;
+        sub(cpu_data, value, 0);
+        cpu_data.a = saved_acc;
+    }
 }
 #[cfg(test)]
-mod arithmetic_add_adc_ut {
+mod arithmetic_ut {
 
     use super::arithmetic::*;
     use crate::cpu_data::Flags;
@@ -192,20 +242,15 @@ mod arithmetic_add_adc_ut {
         assert!(!registers.is_flag_set(Flags::C));
         assert!(!registers.is_flag_set(Flags::N));
     }
-}
-#[cfg(test)]
-mod arithmetic_sub_sbc_ut {
-    use super::arithmetic::*;
-    use crate::cpu_data::Flags;
-    use crate::cpu_data::Registers;
 
     #[test]
     fn sub_the_same_value_test() {
         let mut registers = Registers::new();
         registers.a = 0x3E;
-        sub(&mut registers, 0x3E, 0);
-        assert_eq!(0, registers.a);
 
+        sub(&mut registers, 0x3E, 0);
+
+        assert_eq!(0, registers.a);
         assert!(!registers.is_flag_set(Flags::C));
         assert!(registers.is_flag_set(Flags::H));
         assert!(registers.is_flag_set(Flags::Z));
@@ -215,9 +260,10 @@ mod arithmetic_sub_sbc_ut {
     fn sub_overflow_test() {
         let mut registers = Registers::new();
         registers.a = 16;
-        sub(&mut registers, 18, 0);
-        assert_eq!(254, registers.a);
 
+        sub(&mut registers, 18, 0);
+
+        assert_eq!(254, registers.a);
         assert!(registers.is_flag_set(Flags::C));
         assert!(!registers.is_flag_set(Flags::H));
         assert!(!registers.is_flag_set(Flags::Z));
@@ -228,16 +274,77 @@ mod arithmetic_sub_sbc_ut {
         let mut registers = Registers::new();
         registers.a = 77;
         registers.set_flag(Flags::C);
+
         sbc(&mut registers, 7);
 
         assert_eq!(69, registers.a);
-
         assert!(!registers.is_flag_set(Flags::C));
         assert!(registers.is_flag_set(Flags::H));
         assert!(!registers.is_flag_set(Flags::Z));
         assert!(registers.is_flag_set(Flags::N));
     }
+    #[test]
+    fn and_test() {
+        let mut registers = Registers::new();
+        registers.set_flag(Flags::C);
+        registers.set_flag(Flags::N);
+        registers.a = 0xFC;
+
+        and(&mut registers, 0x0F);
+
+        assert_eq!(0xC, registers.a);
+        assert!(!registers.is_flag_set(Flags::C));
+        assert!(registers.is_flag_set(Flags::H));
+        assert!(!registers.is_flag_set(Flags::Z));
+        assert!(!registers.is_flag_set(Flags::N));
+    }
+    #[test]
+    fn xor_test() {
+        let mut registers = Registers::new();
+        registers.set_flag(Flags::C);
+        registers.set_flag(Flags::N);
+        registers.set_flag(Flags::H);
+        registers.a = 0xFC;
+
+        xor(&mut registers, 0xAC);
+
+        assert_eq!(0x50, registers.a);
+        assert!(!registers.is_flag_set(Flags::C));
+        assert!(!registers.is_flag_set(Flags::H));
+        assert!(!registers.is_flag_set(Flags::Z));
+        assert!(!registers.is_flag_set(Flags::N));
+    }
+    #[test]
+    fn or_test() {
+        let mut registers = Registers::new();
+        registers.set_flag(Flags::C);
+        registers.set_flag(Flags::N);
+        registers.set_flag(Flags::H);
+        registers.a = 0x8D;
+
+        or(&mut registers, 0xA6);
+
+        assert_eq!(0xAF, registers.a);
+        assert!(!registers.is_flag_set(Flags::C));
+        assert!(!registers.is_flag_set(Flags::H));
+        assert!(!registers.is_flag_set(Flags::Z));
+        assert!(!registers.is_flag_set(Flags::N));
+    }
+    #[test]
+    fn cp_test() {
+        let mut registers = Registers::new();
+        registers.a = 0x3E;
+
+        cp(&mut registers, 0x3E);
+
+        assert_eq!(0x3E, registers.a);
+        assert!(!registers.is_flag_set(Flags::C));
+        assert!(registers.is_flag_set(Flags::H));
+        assert!(registers.is_flag_set(Flags::Z));
+        assert!(registers.is_flag_set(Flags::N));
+    }
 }
+
 pub mod logic {}
 pub mod rotate_and_shift {}
 pub mod single_bit_operation {}
