@@ -1,351 +1,444 @@
 pub mod load {}
 
-pub mod arithmetic {
-    use crate::cpu;
-    use crate::cpu_data::Flags;
-    use crate::cpu_data::Registers;
-
-    pub fn get_reg_8bit_value(opcode: u8, regs: &Registers) -> u8 {
-        let reg_id = opcode & 7;
-        match reg_id {
-            0 => regs.b,
-            1 => regs.c,
-            2 => regs.d,
-            3 => regs.e,
-            4 => regs.h,
-            5 => regs.l,
-            7 => regs.a,
-            _ => 0,
-        }
-    }
-
-    pub fn get_reg_16bit_value(opcode: u8, regs: &Registers) -> u16 {
-        let reg_id = (opcode & 0xF0) >> 4;
-        match reg_id {
-            0 => regs.get_bc(),
-            1 => regs.get_de(),
-            2 => regs.get_hl(),
-            3 => regs.sp,
-            _ => 0,
-        }
-    }
+pub mod arithmetic_logic {
+    use crate::cpu_data::{self, FlagsRegister};
 
     fn was_half_carry(reg: u8, value: u8) -> bool {
         (((reg & 0x0F) + (value & 0x0F)) & 0xF0) == 0x10
     }
 
     fn was_half_carry_for_16_bits(reg: u16, value: u16) -> bool {
-        (((reg & 0x0FFF) + (value & 0x0FFF)) & 0x100) == 0x1000
+        (((reg & 0x0FFF) + (value & 0x0FFF)) & 0x100) == 0x100
     }
 
-    pub fn add(cpu_data: &mut Registers, value: u8, carry_value: u8) {
-        cpu_data.unset_flag(Flags::N);
+    pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
+        flag.n = false;
 
-        let (new_value, did_overflow) = cpu_data.a.overflowing_add(value + carry_value);
-
-        cpu_data.unset_flag(Flags::C);
-        cpu_data.unset_flag(Flags::Z);
-        cpu_data.unset_flag(Flags::H);
+        let (new_value, did_overflow) = acc.overflowing_add(value + carry_value);
+        flag.c = false;
+        flag.z = false;
+        flag.h = false;
 
         if did_overflow {
-            cpu_data.set_flag(Flags::C);
+            flag.c = true;
         }
 
         if new_value == 0 {
-            cpu_data.set_flag(Flags::Z);
+            flag.z = true;
         }
 
-        if was_half_carry(cpu_data.a, value + carry_value) {
-            cpu_data.set_flag(Flags::H);
+        if was_half_carry(*acc, value + carry_value) {
+            flag.h = true;
         }
-
-        cpu_data.a = new_value;
+        *acc = new_value;
     }
-    // To check proper calc
-    pub fn add_hl(cpu_data: &mut Registers, reg_value: u16) {
-        cpu_data.unset_flag(Flags::N);
 
-        let mut hl_reg_value = cpu_data.get_hl();
+    pub fn add_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, reg_16_value: u16) {
+        flag.n = false;
 
-        let (new_value, did_overflow) = hl_reg_value.overflowing_add(reg_value);
+        let hl_reg_value = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
+        let (new_value, did_overflow) = hl_reg_value.overflowing_add(reg_16_value);
 
-        cpu_data.unset_flag(Flags::H);
-        cpu_data.unset_flag(Flags::C);
+        flag.h = false;
+        flag.c = false;
 
         if did_overflow {
-            cpu_data.set_flag(Flags::C);
+            flag.c = true;
         }
 
-        if was_half_carry_for_16_bits(cpu_data.get_hl(), reg_value) {
-            cpu_data.set_flag(Flags::H);
+        if was_half_carry_for_16_bits(hl_reg_value, reg_16_value) {
+            flag.h = true;
         }
 
-        cpu_data.set_hl(new_value);
+        *reg_h = ((new_value & 0xFF00).rotate_right(8)) as u8;
+        *reg_l = (new_value & 0x00FF) as u8;
     }
-    // To check proper calc
-    pub fn add_sp(cpu_data: &mut Registers, value: i8) {
-        cpu_data.unset_flag(Flags::Z);
-        cpu_data.unset_flag(Flags::N);
 
-        let mut sp_reg_val = cpu_data.sp;
+    pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
+        flag.z = false;
+        flag.n = false;
+
         let coverted_value = value as i8 as i16 as u16;
+        let (new_value, did_overflow) = reg_sp.overflowing_add(coverted_value);
 
-        let (new_value, did_overflow) = sp_reg_val.overflowing_add(coverted_value);
-
-        cpu_data.unset_flag(Flags::H);
-        cpu_data.unset_flag(Flags::C);
-
-        if did_overflow {
-            cpu_data.set_flag(Flags::C);
-        }
-
-        if was_half_carry_for_16_bits(cpu_data.sp, coverted_value) {
-            cpu_data.set_flag(Flags::H);
-        }
-
-        cpu_data.sp = new_value;
-    }
-
-    pub fn adc(cpu_data: &mut Registers, value: u8) {
-        let carry_val = if cpu_data.is_flag_set(Flags::C) { 1 } else { 0 };
-        add(cpu_data, value, carry_val);
-    }
-
-    pub fn sub(cpu_data: &mut Registers, value: u8, carry_value: u8) {
-        cpu_data.set_flag(Flags::N);
-
-        let (new_value, did_overflow) = cpu_data.a.overflowing_sub(value + carry_value);
-
-        cpu_data.unset_flag(Flags::C);
-        cpu_data.unset_flag(Flags::Z);
-        cpu_data.unset_flag(Flags::H);
+        flag.h = false;
+        flag.c = false;
 
         if did_overflow {
-            cpu_data.set_flag(Flags::C);
+            flag.c = true;
+        }
+
+        if was_half_carry_for_16_bits(*reg_sp, coverted_value) {
+            flag.h = true;
+        }
+
+        *reg_sp = new_value;
+    }
+
+    pub fn adc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        let carry_val = if flag.c == true { 1 } else { 0 };
+        add(flag, acc, value, carry_val);
+    }
+
+    pub fn sub(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
+        flag.n = true;
+
+        let (new_value, did_overflow) = acc.overflowing_sub(value + carry_value);
+
+        flag.c = false;
+        flag.z = false;
+        flag.h = false;
+
+        if did_overflow {
+            flag.c = true;
         }
 
         if new_value == 0 {
-            cpu_data.set_flag(Flags::Z);
+            flag.z = true;
         }
 
-        if was_half_carry(cpu_data.a, value + carry_value) {
-            cpu_data.set_flag(Flags::H);
+        if was_half_carry(*acc, value + carry_value) {
+            flag.h = true;
         }
-
-        cpu_data.a = new_value;
+        *acc = new_value;
     }
 
-    pub fn sbc(cpu_data: &mut Registers, value: u8) {
-        let carry_val = if cpu_data.is_flag_set(Flags::C) { 1 } else { 0 };
-        sub(cpu_data, value, carry_val);
+    pub fn sbc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        let carry_val = if flag.c == true { 1 } else { 0 };
+        sub(flag, acc, value, carry_val);
     }
 
-    pub fn and(cpu_data: &mut Registers, value: u8) {
-        cpu_data.unset_flag(Flags::N);
-        cpu_data.set_flag(Flags::H);
-        cpu_data.unset_flag(Flags::C);
+    pub fn and(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        flag.n = false;
+        flag.h = true;
+        flag.c = false;
 
-        let result: u8 = cpu_data.a & value;
+        *acc &= value;
+        flag.z = false;
 
-        cpu_data.unset_flag(Flags::Z);
+        if *acc == 0 {
+            flag.z = true;
+        }
+    }
+
+    pub fn xor(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        flag.n = false;
+        flag.h = false;
+        flag.c = false;
+
+        *acc ^= value;
+        flag.z = false;
+
+        if *acc == 0 {
+            flag.z = true;
+        }
+    }
+
+    pub fn or(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        flag.n = false;
+        flag.h = false;
+        flag.c = false;
+
+        *acc |= value;
+        flag.z = false;
+
+        if *acc == 0 {
+            flag.z = true;
+        }
+    }
+
+    pub fn cp(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        let saved_acc = *acc;
+        sub(flag, acc, value, 0);
+        *acc = saved_acc;
+    }
+
+    pub fn inc(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
+        flag.n = false;
+
+        let result = *reg_or_data + 1;
+
+        flag.z = false;
+        flag.h = false;
 
         if result == 0 {
-            cpu_data.set_flag(Flags::Z);
+            flag.z = true;
         }
-        cpu_data.a = result;
+
+        if was_half_carry(*reg_or_data, 1) {
+            flag.h = true;
+        }
+
+        *reg_or_data = result;
     }
 
-    pub fn xor(cpu_data: &mut Registers, value: u8) {
-        cpu_data.unset_flag(Flags::N);
-        cpu_data.unset_flag(Flags::H);
-        cpu_data.unset_flag(Flags::C);
+    pub fn inc_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
+        let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
+        reg_value += 1;
 
-        let result: u8 = cpu_data.a ^ value;
-        cpu_data.unset_flag(Flags::Z);
+        *reg_high_byte = ((reg_value & 0xFF00).rotate_right(8)) as u8;
+        *reg_low_byte = (reg_value & 0x00FF) as u8;
+    }
+
+    //Flagi do poprawy halfcarry
+
+    pub fn dec(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
+        flag.n = true;
+
+        let result = *reg_or_data - 1;
+
+        flag.z = false;
+        flag.h = false;
 
         if result == 0 {
-            cpu_data.set_flag(Flags::Z);
+            flag.z = true;
         }
-        cpu_data.a = result;
-    }
 
-    pub fn or(cpu_data: &mut Registers, value: u8) {
-        cpu_data.unset_flag(Flags::N);
-        cpu_data.unset_flag(Flags::H);
-        cpu_data.unset_flag(Flags::C);
-
-        let result: u8 = cpu_data.a | value;
-
-        cpu_data.unset_flag(Flags::Z);
-
-        if result == 0 {
-            cpu_data.set_flag(Flags::Z);
+        if was_half_carry(*reg_or_data, 1) {
+            flag.h = true;
         }
-        cpu_data.a = result;
-    }
 
-    pub fn cp(cpu_data: &mut Registers, value: u8) {
-        let saved_acc = cpu_data.a;
-        sub(cpu_data, value, 0);
-        cpu_data.a = saved_acc;
+        *reg_or_data = result;
     }
 }
 #[cfg(test)]
-mod arithmetic_ut {
+mod arithmetic_logic_ut {
 
-    use super::arithmetic::*;
-    use crate::cpu_data::Flags;
+    use super::arithmetic_logic::*;
     use crate::cpu_data::Registers;
 
     #[test]
     fn add_half_carry_flag_test() {
-        let mut registers = Registers::new();
-        registers.a = 0x6C;
-        registers.set_flag(Flags::N);
+        let mut register = Registers::new();
+        register.a = 0x6C;
+        register.flag.n = true;
 
-        add(&mut registers, 0x2E, 0);
+        add(&mut register.flag, &mut register.a, 0x2E, 0);
 
-        assert_eq!(0x9A, registers.a);
-        assert!(registers.is_flag_set(Flags::H));
-        assert!(!registers.is_flag_set(Flags::Z));
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(!registers.is_flag_set(Flags::N));
+        assert_eq!(0x9A, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
     }
 
     #[test]
     fn add_carry_half_carry_and_zero_flag_test() {
-        let mut registers = Registers::new();
-        registers.a = 0xFF;
-        registers.set_flag(Flags::N);
+        let mut register = Registers::new();
+        register.a = 0xFF;
+        register.flag.n = true;
 
-        add(&mut registers, 1, 0);
+        add(&mut register.flag, &mut register.a, 1, 0);
 
-        assert_eq!(0x00, registers.a);
-        assert!(registers.is_flag_set(Flags::H));
-        assert!(registers.is_flag_set(Flags::Z));
-        assert!(registers.is_flag_set(Flags::C));
-        assert!(!registers.is_flag_set(Flags::N));
+        assert_eq!(0x00, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == true);
+        assert!(register.flag.c == true);
+        assert!(register.flag.n == false);
     }
 
     #[test]
     fn adc_carry_flag_set_test() {
-        let mut registers = Registers::new();
-        registers.a = 0x3D;
-        registers.set_flag(Flags::N);
-        registers.set_flag(Flags::C);
+        let mut register = Registers::new();
+        register.a = 0x3D;
+        register.flag.n = true;
+        register.flag.c = true;
 
-        adc(&mut registers, 0x42);
+        adc(&mut register.flag, &mut register.a, 0x42);
 
-        assert_eq!(0x80, registers.a);
-        assert!(registers.is_flag_set(Flags::H));
-        assert!(!registers.is_flag_set(Flags::Z));
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(!registers.is_flag_set(Flags::N));
+        assert_eq!(0x80, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
+    }
+
+    #[test]
+    fn add_hl_half_carry_test() {
+        let mut register = Registers::new();
+        register.b = 0x01;
+        register.c = 0x80;
+
+        register.h = 0x01;
+        register.l = 0x80;
+
+        register.flag.n = true;
+
+        let bc_reg_val = register.get_bc();
+
+        add_hl(
+            &mut register.flag,
+            &mut register.h,
+            &mut register.l,
+            bc_reg_val,
+        );
+
+        assert_eq!(0x300, register.get_hl());
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
+    }
+
+    #[test]
+    fn add_sp_with_carry_test() {
+        let mut register = Registers::new();
+        register.sp = 0x81;
+
+        register.flag.n = true;
+        register.flag.z = true;
+
+        add_sp(&mut register.flag, &mut register.sp, -1);
+
+        assert_eq!(0x80, register.sp);
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == true);
+        assert!(register.flag.n == false);
     }
 
     #[test]
     fn sub_the_same_value_test() {
-        let mut registers = Registers::new();
-        registers.a = 0x3E;
+        let mut register = Registers::new();
+        register.a = 0x3E;
 
-        sub(&mut registers, 0x3E, 0);
+        sub(&mut register.flag, &mut register.a, 0x3E, 0);
 
-        assert_eq!(0, registers.a);
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(registers.is_flag_set(Flags::H));
-        assert!(registers.is_flag_set(Flags::Z));
-        assert!(registers.is_flag_set(Flags::N));
+        assert_eq!(0, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == true);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == true);
     }
     #[test]
     fn sub_overflow_test() {
-        let mut registers = Registers::new();
-        registers.a = 16;
+        let mut register = Registers::new();
+        register.a = 16;
 
-        sub(&mut registers, 18, 0);
+        sub(&mut register.flag, &mut register.a, 18, 0);
 
-        assert_eq!(254, registers.a);
-        assert!(registers.is_flag_set(Flags::C));
-        assert!(!registers.is_flag_set(Flags::H));
-        assert!(!registers.is_flag_set(Flags::Z));
-        assert!(registers.is_flag_set(Flags::N));
+        assert_eq!(254, register.a);
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == true);
+        assert!(register.flag.n == true);
     }
+
     #[test]
     fn sbc_carry_flag_set_test() {
-        let mut registers = Registers::new();
-        registers.a = 77;
-        registers.set_flag(Flags::C);
+        let mut register = Registers::new();
+        register.a = 77;
+        register.flag.c = true;
 
-        sbc(&mut registers, 7);
+        sbc(&mut register.flag, &mut register.a, 7);
 
-        assert_eq!(69, registers.a);
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(registers.is_flag_set(Flags::H));
-        assert!(!registers.is_flag_set(Flags::Z));
-        assert!(registers.is_flag_set(Flags::N));
+        assert_eq!(69, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == true);
     }
+
     #[test]
     fn and_test() {
-        let mut registers = Registers::new();
-        registers.set_flag(Flags::C);
-        registers.set_flag(Flags::N);
-        registers.a = 0xFC;
+        let mut register = Registers::new();
+        register.flag.c = true;
+        register.flag.n = true;
+        register.a = 0xFC;
 
-        and(&mut registers, 0x0F);
+        and(&mut register.flag, &mut register.a, 0x0F);
 
-        assert_eq!(0xC, registers.a);
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(registers.is_flag_set(Flags::H));
-        assert!(!registers.is_flag_set(Flags::Z));
-        assert!(!registers.is_flag_set(Flags::N));
+        assert_eq!(0xC, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
     }
     #[test]
     fn xor_test() {
-        let mut registers = Registers::new();
-        registers.set_flag(Flags::C);
-        registers.set_flag(Flags::N);
-        registers.set_flag(Flags::H);
-        registers.a = 0xFC;
+        let mut register = Registers::new();
+        register.flag.c = true;
+        register.flag.n = true;
+        register.flag.h = true;
+        register.a = 0xFC;
 
-        xor(&mut registers, 0xAC);
+        xor(&mut register.flag, &mut register.a, 0xAC);
 
-        assert_eq!(0x50, registers.a);
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(!registers.is_flag_set(Flags::H));
-        assert!(!registers.is_flag_set(Flags::Z));
-        assert!(!registers.is_flag_set(Flags::N));
+        assert_eq!(0x50, register.a);
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
     }
     #[test]
     fn or_test() {
-        let mut registers = Registers::new();
-        registers.set_flag(Flags::C);
-        registers.set_flag(Flags::N);
-        registers.set_flag(Flags::H);
-        registers.a = 0x8D;
+        let mut register = Registers::new();
+        register.flag.c = true;
+        register.flag.n = true;
+        register.flag.h = true;
+        register.a = 0x8D;
 
-        or(&mut registers, 0xA6);
+        or(&mut register.flag, &mut register.a, 0xA6);
 
-        assert_eq!(0xAF, registers.a);
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(!registers.is_flag_set(Flags::H));
-        assert!(!registers.is_flag_set(Flags::Z));
-        assert!(!registers.is_flag_set(Flags::N));
+        assert_eq!(0xAF, register.a);
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
     }
+
     #[test]
     fn cp_test() {
-        let mut registers = Registers::new();
-        registers.a = 0x3E;
+        let mut register = Registers::new();
+        register.a = 0x3E;
 
-        cp(&mut registers, 0x3E);
+        cp(&mut register.flag, &mut register.a, 0x3E);
 
-        assert_eq!(0x3E, registers.a);
-        assert!(!registers.is_flag_set(Flags::C));
-        assert!(registers.is_flag_set(Flags::H));
-        assert!(registers.is_flag_set(Flags::Z));
-        assert!(registers.is_flag_set(Flags::N));
+        assert_eq!(0x3E, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == true);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == true);
+    }
+
+    #[test]
+    fn inc_test() {
+        let mut register = Registers::new();
+        register.flag.n = true;
+        register.b = 7;
+
+        inc(&mut register.flag, &mut register.b);
+
+        assert_eq!(8, register.b);
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
+
+        let mut val: u8 = 99;
+
+        inc(&mut register.flag, &mut val);
+
+        assert_eq!(100, val);
+    }
+
+    #[test]
+    fn inc16_test() {
+        let mut register = Registers::new();
+
+        register.b = 0x01;
+        register.c = 0x10;
+
+        inc_16(&mut register.b, &mut register.c);
+
+        assert_eq!(0x111, register.get_bc());
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
     }
 }
 
-pub mod logic {}
 pub mod rotate_and_shift {}
 pub mod single_bit_operation {}
 pub mod cpu_control {}
