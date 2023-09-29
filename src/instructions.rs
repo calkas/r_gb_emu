@@ -3,21 +3,28 @@ pub mod load {}
 pub mod arithmetic_logic {
     use crate::cpu_data::{self, FlagsRegister};
 
-    fn was_half_carry(reg: u8, value: u8) -> bool {
-        (((reg & 0x0F) + (value & 0x0F)) & 0xF0) == 0x10
+    fn half_carry_on_addition(a: u8, b: u8) -> bool {
+        (((a & 0x0F) + (b & 0x0F)) & 0xF0) == 0x10
     }
 
-    fn was_half_carry_for_16_bits(reg: u16, value: u16) -> bool {
-        (((reg & 0x0FFF) + (value & 0x0FFF)) & 0x100) == 0x100
+    fn half_carry_on_addition_16(a: u16, b: u16) -> bool {
+        (((a & 0x0FFF) + (b & 0x0FFF)) & 0x100) == 0x100
+    }
+
+    fn half_carry_on_subtration(a: u8, b: u8) -> bool {
+        (a & 0x0F) < (b & 0x0F)
+    }
+
+    fn half_carry_on_subtration_16(a: u16, b: u16) -> bool {
+        (a & 0x00FF) < (b & 0x00FF)
     }
 
     pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
-        flag.n = false;
-
         let (new_value, did_overflow) = acc.overflowing_add(value + carry_value);
         flag.c = false;
         flag.z = false;
         flag.h = false;
+        flag.n = false;
 
         if did_overflow {
             flag.c = true;
@@ -27,26 +34,25 @@ pub mod arithmetic_logic {
             flag.z = true;
         }
 
-        if was_half_carry(*acc, value + carry_value) {
+        if half_carry_on_addition(*acc, value + carry_value) {
             flag.h = true;
         }
         *acc = new_value;
     }
 
     pub fn add_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, reg_16_value: u16) {
-        flag.n = false;
-
         let hl_reg_value = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
         let (new_value, did_overflow) = hl_reg_value.overflowing_add(reg_16_value);
 
         flag.h = false;
         flag.c = false;
+        flag.n = false;
 
         if did_overflow {
             flag.c = true;
         }
 
-        if was_half_carry_for_16_bits(hl_reg_value, reg_16_value) {
+        if half_carry_on_addition_16(hl_reg_value, reg_16_value) {
             flag.h = true;
         }
 
@@ -55,20 +61,19 @@ pub mod arithmetic_logic {
     }
 
     pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
-        flag.z = false;
-        flag.n = false;
-
         let coverted_value = value as i8 as i16 as u16;
         let (new_value, did_overflow) = reg_sp.overflowing_add(coverted_value);
 
         flag.h = false;
         flag.c = false;
+        flag.z = false;
+        flag.n = false;
 
         if did_overflow {
             flag.c = true;
         }
 
-        if was_half_carry_for_16_bits(*reg_sp, coverted_value) {
+        if half_carry_on_addition_16(*reg_sp, coverted_value) {
             flag.h = true;
         }
 
@@ -81,13 +86,12 @@ pub mod arithmetic_logic {
     }
 
     pub fn sub(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
-        flag.n = true;
-
         let (new_value, did_overflow) = acc.overflowing_sub(value + carry_value);
 
         flag.c = false;
         flag.z = false;
         flag.h = false;
+        flag.n = true;
 
         if did_overflow {
             flag.c = true;
@@ -97,7 +101,7 @@ pub mod arithmetic_logic {
             flag.z = true;
         }
 
-        if was_half_carry(*acc, value + carry_value) {
+        if half_carry_on_subtration(*acc, value + carry_value) {
             flag.h = true;
         }
         *acc = new_value;
@@ -109,12 +113,11 @@ pub mod arithmetic_logic {
     }
 
     pub fn and(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        *acc &= value;
+        flag.z = false;
         flag.n = false;
         flag.h = true;
         flag.c = false;
-
-        *acc &= value;
-        flag.z = false;
 
         if *acc == 0 {
             flag.z = true;
@@ -122,12 +125,11 @@ pub mod arithmetic_logic {
     }
 
     pub fn xor(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        *acc ^= value;
+        flag.z = false;
         flag.n = false;
         flag.h = false;
         flag.c = false;
-
-        *acc ^= value;
-        flag.z = false;
 
         if *acc == 0 {
             flag.z = true;
@@ -135,12 +137,11 @@ pub mod arithmetic_logic {
     }
 
     pub fn or(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+        *acc |= value;
+        flag.z = false;
         flag.n = false;
         flag.h = false;
         flag.c = false;
-
-        *acc |= value;
-        flag.z = false;
 
         if *acc == 0 {
             flag.z = true;
@@ -154,18 +155,17 @@ pub mod arithmetic_logic {
     }
 
     pub fn inc(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
-        flag.n = false;
-
-        let result = *reg_or_data + 1;
+        let result = reg_or_data.wrapping_add(1);
 
         flag.z = false;
         flag.h = false;
+        flag.n = false;
 
         if result == 0 {
             flag.z = true;
         }
 
-        if was_half_carry(*reg_or_data, 1) {
+        if half_carry_on_addition(*reg_or_data, 1) {
             flag.h = true;
         }
 
@@ -174,31 +174,77 @@ pub mod arithmetic_logic {
 
     pub fn inc_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
         let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
-        reg_value += 1;
+        reg_value = reg_value.wrapping_add(1);
 
         *reg_high_byte = ((reg_value & 0xFF00).rotate_right(8)) as u8;
         *reg_low_byte = (reg_value & 0x00FF) as u8;
     }
 
-    //Flagi do poprawy halfcarry
-
     pub fn dec(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
-        flag.n = true;
-
-        let result = *reg_or_data - 1;
+        let result = reg_or_data.wrapping_sub(1);
 
         flag.z = false;
         flag.h = false;
+        flag.n = true;
 
         if result == 0 {
             flag.z = true;
         }
 
-        if was_half_carry(*reg_or_data, 1) {
+        if half_carry_on_subtration(*reg_or_data, 1) {
             flag.h = true;
         }
 
         *reg_or_data = result;
+    }
+
+    pub fn dec_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
+        let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
+        reg_value = reg_value.wrapping_sub(1);
+
+        *reg_high_byte = ((reg_value & 0xFF00).rotate_right(8)) as u8;
+        *reg_low_byte = (reg_value & 0x00FF) as u8;
+    }
+
+    pub fn daa(flag: &mut FlagsRegister, acc: &mut u8) {
+        let mut a = *acc;
+
+        let mut correction: u8 = if flag.c { 0x60 } else { 0x00 };
+
+        if flag.h {
+            correction |= 0x06;
+        }
+
+        if !flag.h {
+            if a & 0x0F > 0x09 {
+                correction |= 0x06;
+            };
+            if a > 0x99 {
+                correction |= 0x60;
+            };
+            a = a.wrapping_add(correction);
+        } else {
+            a = a.wrapping_sub(correction);
+        }
+
+        flag.z = false;
+        flag.c = false;
+        flag.h = false;
+
+        if a == 0 {
+            flag.z = true;
+        }
+
+        if correction >= 0x60 {
+            flag.c = true;
+        }
+        *acc = a;
+    }
+
+    pub fn cpl(flag: &mut FlagsRegister, acc: &mut u8) {
+        *acc ^= 0xFF;
+        flag.h = true;
+        flag.n = true;
     }
 }
 #[cfg(test)]
@@ -305,7 +351,7 @@ mod arithmetic_logic_ut {
         sub(&mut register.flag, &mut register.a, 0x3E, 0);
 
         assert_eq!(0, register.a);
-        assert!(register.flag.h == true);
+        assert!(register.flag.h == false);
         assert!(register.flag.z == true);
         assert!(register.flag.c == false);
         assert!(register.flag.n == true);
@@ -318,7 +364,7 @@ mod arithmetic_logic_ut {
         sub(&mut register.flag, &mut register.a, 18, 0);
 
         assert_eq!(254, register.a);
-        assert!(register.flag.h == false);
+        assert!(register.flag.h == true);
         assert!(register.flag.z == false);
         assert!(register.flag.c == true);
         assert!(register.flag.n == true);
@@ -333,7 +379,7 @@ mod arithmetic_logic_ut {
         sbc(&mut register.flag, &mut register.a, 7);
 
         assert_eq!(69, register.a);
-        assert!(register.flag.h == true);
+        assert!(register.flag.h == false);
         assert!(register.flag.z == false);
         assert!(register.flag.c == false);
         assert!(register.flag.n == true);
@@ -395,23 +441,23 @@ mod arithmetic_logic_ut {
         cp(&mut register.flag, &mut register.a, 0x3E);
 
         assert_eq!(0x3E, register.a);
-        assert!(register.flag.h == true);
+        assert!(register.flag.h == false); // false for z80 for 8080 true
         assert!(register.flag.z == true);
         assert!(register.flag.c == false);
         assert!(register.flag.n == true);
     }
 
     #[test]
-    fn inc_test() {
+    fn inc_overflow_test() {
         let mut register = Registers::new();
         register.flag.n = true;
-        register.b = 7;
+        register.b = 0xFF;
 
         inc(&mut register.flag, &mut register.b);
 
-        assert_eq!(8, register.b);
-        assert!(register.flag.h == false);
-        assert!(register.flag.z == false);
+        assert_eq!(0, register.b);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == true);
         assert!(register.flag.c == false);
         assert!(register.flag.n == false);
 
@@ -420,6 +466,10 @@ mod arithmetic_logic_ut {
         inc(&mut register.flag, &mut val);
 
         assert_eq!(100, val);
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
     }
 
     #[test]
@@ -432,6 +482,47 @@ mod arithmetic_logic_ut {
         inc_16(&mut register.b, &mut register.c);
 
         assert_eq!(0x111, register.get_bc());
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == false);
+    }
+
+    #[test]
+    fn dec_overflow_test() {
+        let mut register = Registers::new();
+        register.flag.n = true;
+        register.b = 0;
+
+        dec(&mut register.flag, &mut register.b);
+
+        assert_eq!(255, register.b);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == true);
+
+        let mut val: u8 = 99;
+
+        dec(&mut register.flag, &mut val);
+
+        assert_eq!(98, val);
+        assert!(register.flag.h == false);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == true);
+    }
+
+    #[test]
+    fn dec16_test() {
+        let mut register = Registers::new();
+
+        register.b = 0x01;
+        register.c = 0x10;
+
+        dec_16(&mut register.b, &mut register.c);
+
+        assert_eq!(0x10F, register.get_bc());
         assert!(register.flag.h == false);
         assert!(register.flag.z == false);
         assert!(register.flag.c == false);
