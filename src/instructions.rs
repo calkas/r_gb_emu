@@ -246,6 +246,28 @@ pub mod arithmetic_logic {
         flag.h = true;
         flag.n = true;
     }
+    pub fn ld_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, sp_reg: u16, value: i8) {
+        let mut reg_hl = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
+
+        let coverted_value = value as i8 as i16 as u16;
+        let (new_value, did_overflow) = reg_hl.overflowing_add(coverted_value + sp_reg);
+
+        flag.h = false;
+        flag.c = false;
+        flag.z = false;
+        flag.n = false;
+
+        if did_overflow {
+            flag.c = true;
+        }
+
+        if half_carry_on_addition_16(reg_hl, coverted_value + sp_reg) {
+            flag.h = true;
+        }
+
+        *reg_h = ((new_value & 0xFF00).rotate_right(8)) as u8;
+        *reg_l = (new_value & 0x00FF) as u8;
+    }
 }
 #[cfg(test)]
 mod arithmetic_logic_ut {
@@ -486,6 +508,18 @@ mod arithmetic_logic_ut {
         assert!(register.flag.z == false);
         assert!(register.flag.c == false);
         assert!(register.flag.n == false);
+
+        //INC sp
+        register.sp = 0xAABB;
+
+        let mut sp_low: u8 = register.sp as u8;
+        let mut sp_high: u8 = ((register.sp & 0xFF00) >> 8) as u8;
+        inc_16(&mut sp_high, &mut sp_low);
+
+        let sp_update = (sp_high as u16).rotate_left(8) | (sp_low as u16);
+        register.sp = sp_update;
+        assert_eq!(0xAABC, sp_update);
+        assert_eq!(0xAABC, register.sp);
     }
 
     #[test]
@@ -527,6 +561,21 @@ mod arithmetic_logic_ut {
         assert!(register.flag.z == false);
         assert!(register.flag.c == false);
         assert!(register.flag.n == false);
+    }
+
+    #[test]
+    fn cpl_test() {
+        let mut register = Registers::new();
+
+        register.a = 0xFF;
+
+        cpl(&mut register.flag, &mut register.a);
+
+        assert_eq!(0, register.a);
+        assert!(register.flag.h == true);
+        assert!(register.flag.z == false);
+        assert!(register.flag.c == false);
+        assert!(register.flag.n == true);
     }
 }
 
