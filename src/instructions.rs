@@ -564,6 +564,30 @@ mod arithmetic_logic_ut {
     }
 
     #[test]
+    fn daa_test() {
+        let mut register = Registers::new();
+
+        //Performing decimal addition
+        //    85  1000 0101   0x85
+        // +  36  0011 0110   0x36
+        // = 121 BCD
+
+        //1) First add 0x85 + 0x36
+        register.a = 0x85;
+
+        add(&mut register.flag, &mut register.a, 0x36, 0);
+
+        assert_eq!(0xBB, register.a);
+
+        //2) Perform daa correction
+        daa(&mut register.flag, &mut register.a);
+
+        assert_eq!(0x21, register.a);
+        //1 carry 21 = 121 BCD
+        assert!(register.flag.c == true);
+    }
+
+    #[test]
     fn cpl_test() {
         let mut register = Registers::new();
 
