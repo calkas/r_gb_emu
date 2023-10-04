@@ -1,4 +1,3 @@
-
 use crate::cpu_data::FlagsRegister;
 
 pub static ARITHMETIC_LOGIC_OPCODES: [u8; 104] = [
@@ -291,7 +290,7 @@ pub fn ld_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, sp_reg: u
 #[cfg(test)]
 mod arithmetic_logic_ut {
 
-    use super::arithmetic_logic::*;
+    use super::*;
     use crate::cpu_data::Registers;
 
     #[test]
