@@ -34,7 +34,7 @@ impl Cpu {
     }
 
     fn get_reg_value_from_opcode_range(&self, opcode_array: &[u8], opcode: u8) -> u8 {
-        assert!(opcode_array.len() != 7);
+        assert!(opcode_array.len() == 7);
         let mut reg_id: usize = 0xFF;
         for (id, element) in opcode_array.iter().enumerate() {
             if opcode == *element {
@@ -55,7 +55,7 @@ impl Cpu {
     }
 
     fn get_reg16_value_from_opcode_array(&self, opcode_array: &[u8], opcode: u8) -> u16 {
-        assert!(opcode_array.len() != 4);
+        assert!(opcode_array.len() == 4);
         let mut reg_id: usize = 0xFF;
         for (id, element) in opcode_array.iter().enumerate() {
             if opcode == *element {
@@ -165,9 +165,11 @@ impl Cpu {
             }
 
             // .::SBC operation::.
-            0x99 | 0x9A | 0x9B | 0x9C | 0x9D | 0x9F => {
-                let register_value = self
-                    .get_reg_value_from_opcode_range(&[0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9F], opcode);
+            0x98 | 0x99 | 0x9A | 0x9B | 0x9C | 0x9D | 0x9F => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9F],
+                    opcode,
+                );
                 arithmetic_logic::sbc(
                     &mut self.register.flag,
                     &mut self.register.a,
@@ -257,6 +259,7 @@ impl Cpu {
                 arithmetic_logic::or(&mut self.register.flag, &mut self.register.a, val);
                 self.cycle += 8;
             }
+
             // .::CP operation::.
             0xB8 | 0xB9 | 0xBA | 0xBB | 0xBC | 0xBD | 0xBF => {
                 let register_value = self.get_reg_value_from_opcode_range(
@@ -417,12 +420,16 @@ impl Cpu {
                 );
                 self.cycle += 12;
             }
-            _ => println!("Instruction not supported!"),
+            _ => panic!("arithmetic_logic opcode not supported"),
         }
     }
 
     fn execute(&mut self, opcode: u8) {
-        self.arithmetic_logic_instruction_dispatcher(opcode);
+        if arithmetic_logic::is_supported_instruction(opcode) {
+            self.arithmetic_logic_instruction_dispatcher(opcode);
+        } else {
+            panic!("Instruction not supported!");
+        }
     }
 
     fn read_byte(&self, address: u16) -> u8 {
@@ -449,4 +456,13 @@ impl Cpu {
             self.register.l
         );
     }
+}
+
+#[cfg(test)]
+mod cpu_ut {
+
+    use super::*;
+    use crate::instructions::arithmetic_logic;
+    #[test]
+    fn arithmetic_logic_opcode_check() {}
 }
