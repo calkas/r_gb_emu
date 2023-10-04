@@ -1,295 +1,293 @@
-pub mod load {}
 
-pub mod arithmetic_logic {
-    use crate::cpu_data::FlagsRegister;
+use crate::cpu_data::FlagsRegister;
 
-    pub static ARITHMETIC_LOGIC_OPCODES: [u8; 104] = [
-        0x03, 0x04, 0x05, 0x09, 0x0b, 0x0c, 0x0d, 0x13, 0x14, 0x15, 0x19, 0x1b, 0x1c, 0x1d, 0x23,
-        0x24, 0x25, 0x27, 0x29, 0x2b, 0x2c, 0x2d, 0x2f, 0x33, 0x34, 0x35, 0x39, 0x3b, 0x3c, 0x3d,
-        0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e,
-        0x8f, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d,
-        0x9e, 0x9f, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac,
-        0xad, 0xae, 0xaf, 0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb,
-        0xbc, 0xbd, 0xbe, 0xbf, 0xc6, 0xce, 0xd6, 0xde, 0xe6, 0xe8, 0xee, 0xf6, 0xf8, 0xfe,
-    ];
+pub static ARITHMETIC_LOGIC_OPCODES: [u8; 104] = [
+    0x03, 0x04, 0x05, 0x09, 0x0b, 0x0c, 0x0d, 0x13, 0x14, 0x15, 0x19, 0x1b, 0x1c, 0x1d, 0x23, 0x24,
+    0x25, 0x27, 0x29, 0x2b, 0x2c, 0x2d, 0x2f, 0x33, 0x34, 0x35, 0x39, 0x3b, 0x3c, 0x3d, 0x80, 0x81,
+    0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x91,
+    0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f, 0xa0, 0xa1,
+    0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0, 0xb1,
+    0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf, 0xc6, 0xce,
+    0xd6, 0xde, 0xe6, 0xe8, 0xee, 0xf6, 0xf8, 0xfe,
+];
 
-    pub fn is_supported_instruction(looking_opcode: u8) -> bool {
-        let result = ARITHMETIC_LOGIC_OPCODES
-            .iter()
-            .position(|&element| looking_opcode == element);
+pub fn is_supported_instruction(looking_opcode: u8) -> bool {
+    let result = ARITHMETIC_LOGIC_OPCODES
+        .iter()
+        .position(|&element| looking_opcode == element);
 
-        if result.is_some() {
-            return true;
-        }
-        return false;
+    if result.is_some() {
+        return true;
+    }
+    return false;
+}
+
+fn half_carry_on_addition(a: u8, b: u8) -> bool {
+    (((a & 0x0F) + (b & 0x0F)) & 0xF0) == 0x10
+}
+
+fn half_carry_on_addition_16(a: u16, b: u16) -> bool {
+    (((a & 0x0FFF) + (b & 0x0FFF)) & 0x100) == 0x100
+}
+
+fn half_carry_on_subtration(a: u8, b: u8) -> bool {
+    (a & 0x0F) < (b & 0x0F)
+}
+#[warn(dead_code)]
+fn half_carry_on_subtration_16(a: u16, b: u16) -> bool {
+    (a & 0x00FF) < (b & 0x00FF)
+}
+
+pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
+    let (new_value, did_overflow) = acc.overflowing_add(value + carry_value);
+    flag.c = false;
+    flag.z = false;
+    flag.h = false;
+    flag.n = false;
+
+    if did_overflow {
+        flag.c = true;
     }
 
-    fn half_carry_on_addition(a: u8, b: u8) -> bool {
-        (((a & 0x0F) + (b & 0x0F)) & 0xF0) == 0x10
+    if new_value == 0 {
+        flag.z = true;
     }
 
-    fn half_carry_on_addition_16(a: u16, b: u16) -> bool {
-        (((a & 0x0FFF) + (b & 0x0FFF)) & 0x100) == 0x100
-    }
-
-    fn half_carry_on_subtration(a: u8, b: u8) -> bool {
-        (a & 0x0F) < (b & 0x0F)
-    }
-    #[warn(dead_code)]
-    fn half_carry_on_subtration_16(a: u16, b: u16) -> bool {
-        (a & 0x00FF) < (b & 0x00FF)
-    }
-
-    pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
-        let (new_value, did_overflow) = acc.overflowing_add(value + carry_value);
-        flag.c = false;
-        flag.z = false;
-        flag.h = false;
-        flag.n = false;
-
-        if did_overflow {
-            flag.c = true;
-        }
-
-        if new_value == 0 {
-            flag.z = true;
-        }
-
-        if half_carry_on_addition(*acc, value + carry_value) {
-            flag.h = true;
-        }
-        *acc = new_value;
-    }
-
-    pub fn add_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, reg_16_value: u16) {
-        let hl_reg_value = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
-        let (new_value, did_overflow) = hl_reg_value.overflowing_add(reg_16_value);
-
-        flag.h = false;
-        flag.c = false;
-        flag.n = false;
-
-        if did_overflow {
-            flag.c = true;
-        }
-
-        if half_carry_on_addition_16(hl_reg_value, reg_16_value) {
-            flag.h = true;
-        }
-
-        *reg_h = ((new_value & 0xFF00).rotate_right(8)) as u8;
-        *reg_l = (new_value & 0x00FF) as u8;
-    }
-
-    pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
-        let coverted_value = value as i8 as i16 as u16;
-        let (new_value, did_overflow) = reg_sp.overflowing_add(coverted_value);
-
-        flag.h = false;
-        flag.c = false;
-        flag.z = false;
-        flag.n = false;
-
-        if did_overflow {
-            flag.c = true;
-        }
-
-        if half_carry_on_addition_16(*reg_sp, coverted_value) {
-            flag.h = true;
-        }
-
-        *reg_sp = new_value;
-    }
-
-    pub fn adc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-        let carry_val = if flag.c == true { 1 } else { 0 };
-        add(flag, acc, value, carry_val);
-    }
-
-    pub fn sub(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
-        let (new_value, did_overflow) = acc.overflowing_sub(value + carry_value);
-
-        flag.c = false;
-        flag.z = false;
-        flag.h = false;
-        flag.n = true;
-
-        if did_overflow {
-            flag.c = true;
-        }
-
-        if new_value == 0 {
-            flag.z = true;
-        }
-
-        if half_carry_on_subtration(*acc, value + carry_value) {
-            flag.h = true;
-        }
-        *acc = new_value;
-    }
-
-    pub fn sbc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-        let carry_val = if flag.c == true { 1 } else { 0 };
-        sub(flag, acc, value, carry_val);
-    }
-
-    pub fn and(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-        *acc &= value;
-        flag.z = false;
-        flag.n = false;
+    if half_carry_on_addition(*acc, value + carry_value) {
         flag.h = true;
-        flag.c = false;
+    }
+    *acc = new_value;
+}
 
-        if *acc == 0 {
-            flag.z = true;
-        }
+pub fn add_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, reg_16_value: u16) {
+    let hl_reg_value = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
+    let (new_value, did_overflow) = hl_reg_value.overflowing_add(reg_16_value);
+
+    flag.h = false;
+    flag.c = false;
+    flag.n = false;
+
+    if did_overflow {
+        flag.c = true;
     }
 
-    pub fn xor(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-        *acc ^= value;
-        flag.z = false;
-        flag.n = false;
-        flag.h = false;
-        flag.c = false;
-
-        if *acc == 0 {
-            flag.z = true;
-        }
-    }
-
-    pub fn or(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-        *acc |= value;
-        flag.z = false;
-        flag.n = false;
-        flag.h = false;
-        flag.c = false;
-
-        if *acc == 0 {
-            flag.z = true;
-        }
-    }
-
-    pub fn cp(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-        let saved_acc = *acc;
-        sub(flag, acc, value, 0);
-        *acc = saved_acc;
-    }
-
-    pub fn inc(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
-        let result = reg_or_data.wrapping_add(1);
-
-        flag.z = false;
-        flag.h = false;
-        flag.n = false;
-
-        if result == 0 {
-            flag.z = true;
-        }
-
-        if half_carry_on_addition(*reg_or_data, 1) {
-            flag.h = true;
-        }
-
-        *reg_or_data = result;
-    }
-
-    pub fn inc_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
-        let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
-        reg_value = reg_value.wrapping_add(1);
-
-        *reg_high_byte = ((reg_value & 0xFF00).rotate_right(8)) as u8;
-        *reg_low_byte = (reg_value & 0x00FF) as u8;
-    }
-
-    pub fn dec(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
-        let result = reg_or_data.wrapping_sub(1);
-
-        flag.z = false;
-        flag.h = false;
-        flag.n = true;
-
-        if result == 0 {
-            flag.z = true;
-        }
-
-        if half_carry_on_subtration(*reg_or_data, 1) {
-            flag.h = true;
-        }
-
-        *reg_or_data = result;
-    }
-
-    pub fn dec_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
-        let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
-        reg_value = reg_value.wrapping_sub(1);
-
-        *reg_high_byte = ((reg_value & 0xFF00).rotate_right(8)) as u8;
-        *reg_low_byte = (reg_value & 0x00FF) as u8;
-    }
-
-    pub fn daa(flag: &mut FlagsRegister, acc: &mut u8) {
-        let mut a = *acc;
-
-        let mut correction: u8 = if flag.c { 0x60 } else { 0x00 };
-
-        if flag.h {
-            correction |= 0x06;
-        }
-
-        if !flag.h {
-            if a & 0x0F > 0x09 {
-                correction |= 0x06;
-            };
-            if a > 0x99 {
-                correction |= 0x60;
-            };
-            a = a.wrapping_add(correction);
-        } else {
-            a = a.wrapping_sub(correction);
-        }
-
-        flag.z = false;
-        flag.c = false;
-        flag.h = false;
-
-        if a == 0 {
-            flag.z = true;
-        }
-
-        if correction >= 0x60 {
-            flag.c = true;
-        }
-        *acc = a;
-    }
-
-    pub fn cpl(flag: &mut FlagsRegister, acc: &mut u8) {
-        *acc ^= 0xFF;
+    if half_carry_on_addition_16(hl_reg_value, reg_16_value) {
         flag.h = true;
-        flag.n = true;
     }
-    pub fn ld_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, sp_reg: u16, value: i8) {
-        let reg_hl = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
 
-        let coverted_value = value as i8 as i16 as u16;
-        let (new_value, did_overflow) = reg_hl.overflowing_add(coverted_value + sp_reg);
+    *reg_h = ((new_value & 0xFF00).rotate_right(8)) as u8;
+    *reg_l = (new_value & 0x00FF) as u8;
+}
 
-        flag.h = false;
-        flag.c = false;
-        flag.z = false;
-        flag.n = false;
+pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
+    let coverted_value = value as i8 as i16 as u16;
+    let (new_value, did_overflow) = reg_sp.overflowing_add(coverted_value);
 
-        if did_overflow {
-            flag.c = true;
-        }
+    flag.h = false;
+    flag.c = false;
+    flag.z = false;
+    flag.n = false;
 
-        if half_carry_on_addition_16(reg_hl, coverted_value + sp_reg) {
-            flag.h = true;
-        }
+    if did_overflow {
+        flag.c = true;
+    }
 
-        *reg_h = ((new_value & 0xFF00).rotate_right(8)) as u8;
-        *reg_l = (new_value & 0x00FF) as u8;
+    if half_carry_on_addition_16(*reg_sp, coverted_value) {
+        flag.h = true;
+    }
+
+    *reg_sp = new_value;
+}
+
+pub fn adc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+    let carry_val = if flag.c == true { 1 } else { 0 };
+    add(flag, acc, value, carry_val);
+}
+
+pub fn sub(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
+    let (new_value, did_overflow) = acc.overflowing_sub(value + carry_value);
+
+    flag.c = false;
+    flag.z = false;
+    flag.h = false;
+    flag.n = true;
+
+    if did_overflow {
+        flag.c = true;
+    }
+
+    if new_value == 0 {
+        flag.z = true;
+    }
+
+    if half_carry_on_subtration(*acc, value + carry_value) {
+        flag.h = true;
+    }
+    *acc = new_value;
+}
+
+pub fn sbc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+    let carry_val = if flag.c == true { 1 } else { 0 };
+    sub(flag, acc, value, carry_val);
+}
+
+pub fn and(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+    *acc &= value;
+    flag.z = false;
+    flag.n = false;
+    flag.h = true;
+    flag.c = false;
+
+    if *acc == 0 {
+        flag.z = true;
     }
 }
+
+pub fn xor(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+    *acc ^= value;
+    flag.z = false;
+    flag.n = false;
+    flag.h = false;
+    flag.c = false;
+
+    if *acc == 0 {
+        flag.z = true;
+    }
+}
+
+pub fn or(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+    *acc |= value;
+    flag.z = false;
+    flag.n = false;
+    flag.h = false;
+    flag.c = false;
+
+    if *acc == 0 {
+        flag.z = true;
+    }
+}
+
+pub fn cp(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
+    let saved_acc = *acc;
+    sub(flag, acc, value, 0);
+    *acc = saved_acc;
+}
+
+pub fn inc(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
+    let result = reg_or_data.wrapping_add(1);
+
+    flag.z = false;
+    flag.h = false;
+    flag.n = false;
+
+    if result == 0 {
+        flag.z = true;
+    }
+
+    if half_carry_on_addition(*reg_or_data, 1) {
+        flag.h = true;
+    }
+
+    *reg_or_data = result;
+}
+
+pub fn inc_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
+    let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
+    reg_value = reg_value.wrapping_add(1);
+
+    *reg_high_byte = ((reg_value & 0xFF00).rotate_right(8)) as u8;
+    *reg_low_byte = (reg_value & 0x00FF) as u8;
+}
+
+pub fn dec(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
+    let result = reg_or_data.wrapping_sub(1);
+
+    flag.z = false;
+    flag.h = false;
+    flag.n = true;
+
+    if result == 0 {
+        flag.z = true;
+    }
+
+    if half_carry_on_subtration(*reg_or_data, 1) {
+        flag.h = true;
+    }
+
+    *reg_or_data = result;
+}
+
+pub fn dec_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
+    let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
+    reg_value = reg_value.wrapping_sub(1);
+
+    *reg_high_byte = ((reg_value & 0xFF00).rotate_right(8)) as u8;
+    *reg_low_byte = (reg_value & 0x00FF) as u8;
+}
+
+pub fn daa(flag: &mut FlagsRegister, acc: &mut u8) {
+    let mut a = *acc;
+
+    let mut correction: u8 = if flag.c { 0x60 } else { 0x00 };
+
+    if flag.h {
+        correction |= 0x06;
+    }
+
+    if !flag.h {
+        if a & 0x0F > 0x09 {
+            correction |= 0x06;
+        };
+        if a > 0x99 {
+            correction |= 0x60;
+        };
+        a = a.wrapping_add(correction);
+    } else {
+        a = a.wrapping_sub(correction);
+    }
+
+    flag.z = false;
+    flag.c = false;
+    flag.h = false;
+
+    if a == 0 {
+        flag.z = true;
+    }
+
+    if correction >= 0x60 {
+        flag.c = true;
+    }
+    *acc = a;
+}
+
+pub fn cpl(flag: &mut FlagsRegister, acc: &mut u8) {
+    *acc ^= 0xFF;
+    flag.h = true;
+    flag.n = true;
+}
+pub fn ld_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, sp_reg: u16, value: i8) {
+    let reg_hl = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
+
+    let coverted_value = value as i8 as i16 as u16;
+    let (new_value, did_overflow) = reg_hl.overflowing_add(coverted_value + sp_reg);
+
+    flag.h = false;
+    flag.c = false;
+    flag.z = false;
+    flag.n = false;
+
+    if did_overflow {
+        flag.c = true;
+    }
+
+    if half_carry_on_addition_16(reg_hl, coverted_value + sp_reg) {
+        flag.h = true;
+    }
+
+    *reg_h = ((new_value & 0xFF00).rotate_right(8)) as u8;
+    *reg_l = (new_value & 0x00FF) as u8;
+}
+
 #[cfg(test)]
 mod arithmetic_logic_ut {
 
@@ -643,8 +641,3 @@ mod arithmetic_logic_ut {
         assert_eq!(0x120, register.get_hl());
     }
 }
-
-pub mod rotate_and_shift {}
-pub mod single_bit_operation {}
-pub mod cpu_control {}
-pub mod jump {}
