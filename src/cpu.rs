@@ -5,6 +5,7 @@ pub struct Cpu {
     pub register: Registers,
     pub cycle: u32,
     pub memory: [u8; 0xFFFF],
+    pub stack: [u8; 0xFFFF], //temporary solution
 }
 impl Cpu {
     pub fn new() -> Self {
@@ -12,6 +13,7 @@ impl Cpu {
             register: Registers::new(),
             cycle: 0,
             memory: [0xFF; 0xFFFF],
+            stack: [0xFF; 0xFFFF],
         };
     }
 
@@ -423,6 +425,8 @@ impl Cpu {
             _ => panic!("arithmetic_logic opcode not supported"),
         }
     }
+
+    fn load_instruction_dispatcher(&mut self, opcode: u8) {}
 
     fn execute(&mut self, opcode: u8) {
         if arithmetic_logic::is_supported_instruction(opcode) {

@@ -44,8 +44,8 @@ impl Registers {
             e: 0,
             h: 0,
             l: 0,
-            pc: 0,
-            sp: 0,
+            pc: 0, //0x0100,
+            sp: 0xFFFE,
         }
     }
 
