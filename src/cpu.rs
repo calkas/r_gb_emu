@@ -1,6 +1,7 @@
 use super::cpu_data::Registers;
-use crate::instructions::arithmetic_logic;
-
+use crate::instructions::{arithmetic_logic, load};
+/// # DMG-CPU
+/// 8-bit 8080-like Sharp CPU
 pub struct Cpu {
     pub register: Registers,
     pub cycle: u32,
@@ -33,6 +34,12 @@ impl Cpu {
         let byte = self.read_byte(self.register.pc);
         self.register.pc = self.register.pc.wrapping_add(1);
         byte
+    }
+
+    fn fetch_word(&mut self) -> u16 {
+        let low_byte = self.fetch_byte();
+        let high_byte = self.fetch_byte();
+        (high_byte as u16).rotate_left(8) | (low_byte as u16)
     }
 
     fn get_reg_value_from_opcode_range(&self, opcode_array: &[u8], opcode: u8) -> u8 {
@@ -426,7 +433,63 @@ impl Cpu {
         }
     }
 
-    fn load_instruction_dispatcher(&mut self, opcode: u8) {}
+    fn load_instruction_dispatcher(&mut self, opcode: u8) {
+        // 0x01, 0x02, 0x06, 0x08, 0x0A, 0x0E, 0x11, 0x12, 0x16, 0x1A
+        match opcode {
+            0x01 => {
+                let value = self.fetch_word();
+                load::ld_16(&mut self.register.b, &mut self.register.c, value);
+                self.cycle += 12;
+            }
+            0x02 => {
+                let value = self.read_byte(self.register.get_bc());
+                load::ld(&mut self.register.a, value);
+                self.cycle += 8;
+            }
+            0x06 => {
+                let value = self.fetch_byte();
+                load::ld(&mut self.register.b, value);
+                self.cycle += 8;
+            }
+            0x08 => {
+                let address = self.fetch_word();
+                self.write_word(address, self.register.sp);
+                self.cycle += 20;
+            }
+            0x0A => {
+                let value = self.read_byte(self.register.get_bc());
+                load::ld(&mut self.register.b, value);
+                self.cycle += 8;
+            }
+            0x0E => {
+                let value = self.fetch_byte();
+                load::ld(&mut self.register.c, value);
+                self.cycle += 8;
+            }
+            0x11 => {
+                let value = self.fetch_word();
+                load::ld_16(&mut self.register.d, &mut self.register.e, value);
+                self.cycle += 12;
+            }
+            0x12 => {
+                let address = self.register.get_de();
+                self.write_byte(address, self.register.a);
+                self.cycle += 8;
+            }
+            0x16 => {
+                let value = self.fetch_byte();
+                load::ld(&mut self.register.d, value);
+                self.cycle += 8;
+            }
+            0x1A => {
+                let value = self.read_byte(self.register.get_de());
+                load::ld(&mut self.register.a, value);
+                self.cycle += 8;
+            }
+
+            _ => panic!("load opcode not supported"),
+        }
+    }
 
     fn execute(&mut self, opcode: u8) {
         if arithmetic_logic::is_supported_instruction(opcode) {
@@ -442,6 +505,13 @@ impl Cpu {
 
     fn write_byte(&mut self, address: u16, value: u8) {
         self.memory[address as usize] = value;
+    }
+
+    fn write_word(&mut self, address: u16, value: u16) {
+        let low_byte_val = (value & 0x00FF) as u8;
+        let high_byte_val = (value & 0xFF00).rotate_right(8) as u8;
+        self.write_byte(address, low_byte_val);
+        self.write_byte(address + 1, high_byte_val);
     }
 
     fn dump_regs(&self) {

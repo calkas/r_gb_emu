@@ -1,6 +1,7 @@
 mod cpu;
 mod cpu_data;
 mod instructions;
+mod mmu;
 
 use cpu::Cpu;
 
