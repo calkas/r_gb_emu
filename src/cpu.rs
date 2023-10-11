@@ -434,7 +434,9 @@ impl Cpu {
     }
 
     fn load_instruction_dispatcher(&mut self, opcode: u8) {
-        // 0x01, 0x02, 0x06, 0x08, 0x0A, 0x0E, 0x11, 0x12, 0x16, 0x1A
+        // 0x01, 0x02, 0x06, 0x08, 0x0A, 0x0E, 0x11, 0x12, 0x16, 0x1A, 0x1E, 0x21,
+        // 0x22, 0x26, 0x2A, 0x2E, 0x31, 0x32, 0x36, 0x3A, 0x3E, 0x40, 0x41, 0x42,
+        // 0x43, 0x44, 0x45, 0x46, 0x47, 0,48, 0x49,
         match opcode {
             0x01 => {
                 let value = self.fetch_word();
@@ -485,6 +487,103 @@ impl Cpu {
                 let value = self.read_byte(self.register.get_de());
                 load::ld(&mut self.register.a, value);
                 self.cycle += 8;
+            }
+            0x1E => {
+                let value = self.fetch_byte();
+                load::ld(&mut self.register.e, value);
+                self.cycle += 8;
+            }
+            0x21 => {
+                let value = self.fetch_word();
+                load::ld_16(&mut self.register.h, &mut self.register.l, value);
+                self.cycle += 12;
+            }
+            0x22 => {
+                let address = load::hli(&mut self.register.h, &mut self.register.l);
+                self.write_byte(address, self.register.a);
+                self.cycle += 8;
+            }
+            0x26 => {
+                let value = self.fetch_byte();
+                load::ld(&mut self.register.h, value);
+                self.cycle += 8;
+            }
+            0x2A => {
+                let address = load::hli(&mut self.register.h, &mut self.register.l);
+                self.register.a = self.read_byte(address);
+                self.cycle += 8;
+            }
+            0x2E => {
+                let value = self.fetch_byte();
+                load::ld(&mut self.register.l, value);
+                self.cycle += 8;
+            }
+            0x31 => {
+                self.register.sp = self.fetch_word();
+                self.cycle += 12;
+            }
+            0x32 => {
+                let address = load::hld(&mut self.register.h, &mut self.register.l);
+                self.write_byte(address, self.register.a);
+                self.cycle += 8;
+            }
+            0x36 => {
+                let value = self.fetch_byte();
+                self.write_byte(self.register.get_hl(), value);
+                self.cycle += 12;
+            }
+            0x3A => {
+                let address = load::hld(&mut self.register.h, &mut self.register.l);
+                self.register.a = self.read_byte(address);
+                self.cycle += 8;
+            }
+            0x3E => {
+                let value = self.fetch_byte();
+                load::ld(&mut self.register.a, value);
+                self.cycle += 8;
+            }
+            // LD B, r
+            0x40 => {
+                // LD B, B
+                self.cycle += 4;
+            }
+            0x41 => {
+                load::ld(&mut self.register.b, self.register.c);
+                self.cycle += 4;
+            }
+            0x42 => {
+                load::ld(&mut self.register.b, self.register.d);
+                self.cycle += 4;
+            }
+            0x43 => {
+                load::ld(&mut self.register.b, self.register.e);
+                self.cycle += 4;
+            }
+            0x44 => {
+                load::ld(&mut self.register.b, self.register.h);
+                self.cycle += 4;
+            }
+            0x45 => {
+                load::ld(&mut self.register.b, self.register.l);
+                self.cycle += 4;
+            }
+            0x46 => {
+                let value = self.read_byte(self.register.get_hl());
+                load::ld(&mut self.register.b, value);
+                self.cycle += 8;
+            }
+            0x47 => {
+                load::ld(&mut self.register.b, self.register.a);
+                self.cycle += 4;
+            }
+            // LD c, r
+            0x48 => {
+                load::ld(&mut self.register.c, self.register.b);
+                self.cycle += 4;
+            }
+            0x49 => {
+                //LD C,C
+                self.cycle += 4;
             }
 
             _ => panic!("load opcode not supported"),
