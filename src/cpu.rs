@@ -436,7 +436,10 @@ impl Cpu {
     fn load_instruction_dispatcher(&mut self, opcode: u8) {
         // 0x01, 0x02, 0x06, 0x08, 0x0A, 0x0E, 0x11, 0x12, 0x16, 0x1A, 0x1E, 0x21,
         // 0x22, 0x26, 0x2A, 0x2E, 0x31, 0x32, 0x36, 0x3A, 0x3E, 0x40, 0x41, 0x42,
-        // 0x43, 0x44, 0x45, 0x46, 0x47, 0,48, 0x49,
+        // 0x43, 0x44, 0x45, 0x46, 0x47, 0,48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E,
+        // 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A,
+        // 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
+        // 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F
         match opcode {
             0x01 => {
                 let value = self.fetch_word();
@@ -543,28 +546,12 @@ impl Cpu {
                 self.cycle += 8;
             }
             // LD B, r
-            0x40 => {
-                // LD B, B
-                self.cycle += 4;
-            }
-            0x41 => {
-                load::ld(&mut self.register.b, self.register.c);
-                self.cycle += 4;
-            }
-            0x42 => {
-                load::ld(&mut self.register.b, self.register.d);
-                self.cycle += 4;
-            }
-            0x43 => {
-                load::ld(&mut self.register.b, self.register.e);
-                self.cycle += 4;
-            }
-            0x44 => {
-                load::ld(&mut self.register.b, self.register.h);
-                self.cycle += 4;
-            }
-            0x45 => {
-                load::ld(&mut self.register.b, self.register.l);
+            0x40 | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x47 => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x47],
+                    opcode,
+                );
+                load::ld(&mut self.register.b, register_value);
                 self.cycle += 4;
             }
             0x46 => {
@@ -572,18 +559,76 @@ impl Cpu {
                 load::ld(&mut self.register.b, value);
                 self.cycle += 8;
             }
-            0x47 => {
-                load::ld(&mut self.register.b, self.register.a);
+            // LD C, r
+            0x48 | 0x49 | 0x4A | 0x4B | 0x4C | 0x4D | 0x4F => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4F],
+                    opcode,
+                );
+                load::ld(&mut self.register.c, register_value);
                 self.cycle += 4;
             }
-            // LD c, r
-            0x48 => {
-                load::ld(&mut self.register.c, self.register.b);
+            0x4E => {
+                let value = self.read_byte(self.register.get_hl());
+                load::ld(&mut self.register.c, value);
+                self.cycle += 8;
+            }
+            // LD D, r
+            0x50 | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 | 0x57 => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x57],
+                    opcode,
+                );
+                load::ld(&mut self.register.d, register_value);
                 self.cycle += 4;
             }
-            0x49 => {
-                //LD C,C
+            0x56 => {
+                let value = self.read_byte(self.register.get_hl());
+                load::ld(&mut self.register.d, value);
+                self.cycle += 8;
+            }
+            // LD E, r
+            0x58 | 0x59 | 0x5A | 0x5B | 0x5C | 0x5D | 0x5F => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5F],
+                    opcode,
+                );
+                load::ld(&mut self.register.e, register_value);
                 self.cycle += 4;
+            }
+            0x5E => {
+                let value = self.read_byte(self.register.get_hl());
+                load::ld(&mut self.register.e, value);
+                self.cycle += 8;
+            }
+
+            // LD H, r
+            0x60 | 0x61 | 0x62 | 0x63 | 0x64 | 0x65 | 0x67 => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x67],
+                    opcode,
+                );
+                load::ld(&mut self.register.h, register_value);
+                self.cycle += 4;
+            }
+            0x66 => {
+                let value = self.read_byte(self.register.get_hl());
+                load::ld(&mut self.register.h, value);
+                self.cycle += 8;
+            }
+            // LD L, r
+            0x68 | 0x69 | 0x6A | 0x6B | 0x6C | 0x6D | 0x6F => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6F],
+                    opcode,
+                );
+                load::ld(&mut self.register.h, register_value);
+                self.cycle += 4;
+            }
+            0x6E => {
+                let value = self.read_byte(self.register.get_hl());
+                load::ld(&mut self.register.e, value);
+                self.cycle += 8;
             }
 
             _ => panic!("load opcode not supported"),
