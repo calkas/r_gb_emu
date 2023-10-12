@@ -1,3 +1,4 @@
+#[derive(Clone, Copy)]
 pub struct FlagsRegister {
     pub z: bool,
     pub n: bool,
@@ -13,6 +14,26 @@ impl FlagsRegister {
             h: false,
             c: false,
         }
+    }
+}
+
+impl std::convert::From<FlagsRegister> for u8 {
+    fn from(flag: FlagsRegister) -> u8 {
+        let mut ret_val_flag: u8 = 0;
+
+        if flag.z {
+            ret_val_flag |= 1_u8.rotate_left(7);
+        }
+        if flag.n {
+            ret_val_flag |= 1_u8.rotate_left(6);
+        }
+        if flag.h {
+            ret_val_flag |= 1_u8.rotate_left(5);
+        }
+        if flag.c {
+            ret_val_flag |= 1_u8.rotate_left(4);
+        }
+        ret_val_flag
     }
 }
 
@@ -44,7 +65,7 @@ impl Registers {
             e: 0,
             h: 0,
             l: 0,
-            pc: 0, //0x0100,
+            pc: 0,
             sp: 0xFFFE,
         }
     }
@@ -59,6 +80,10 @@ impl Registers {
 
     pub fn get_hl(&self) -> u16 {
         (self.h as u16).rotate_left(8) | (self.l as u16)
+    }
+    pub fn get_af(&self) -> u16 {
+        let flag_value: u8 = FlagsRegister::into(self.flag);
+        (self.a as u16).rotate_left(8) | (flag_value as u16)
     }
 }
 
@@ -80,5 +105,20 @@ mod uint_test {
         assert_eq!(0x3334, register.get_bc());
         assert_eq!(0x3536, register.get_de());
         assert_eq!(0x3738, register.get_hl());
+    }
+    #[test]
+    fn af_test() {
+        let mut register = Registers::new();
+
+        register.a = 0x01;
+        assert_eq!(0x100, register.get_af());
+        register.flag.z = true;
+        assert_eq!(0x180, register.get_af());
+        register.flag.n = true;
+        assert_eq!(0x1C0, register.get_af());
+        register.flag.h = true;
+        assert_eq!(0x1E0, register.get_af());
+        register.flag.c = true;
+        assert_eq!(0x1F0, register.get_af());
     }
 }
