@@ -10,17 +10,6 @@ pub static ARITHMETIC_LOGIC_OPCODES: [u8; 104] = [
     0xd6, 0xde, 0xe6, 0xe8, 0xee, 0xf6, 0xf8, 0xfe,
 ];
 
-pub fn is_supported_instruction(looking_opcode: u8) -> bool {
-    let result = ARITHMETIC_LOGIC_OPCODES
-        .iter()
-        .position(|&element| looking_opcode == element);
-
-    if result.is_some() {
-        return true;
-    }
-    return false;
-}
-
 fn half_carry_on_addition(a: u8, b: u8) -> bool {
     (((a & 0x0F) + (b & 0x0F)) & 0xF0) == 0x10
 }

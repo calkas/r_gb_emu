@@ -1,5 +1,5 @@
 use super::cpu_data::Registers;
-use crate::instructions::{arithmetic_logic, load};
+use crate::instructions::{self, arithmetic_logic, load};
 /// # DMG-CPU
 /// 8-bit 8080-like Sharp CPU
 pub struct Cpu {
@@ -439,7 +439,9 @@ impl Cpu {
         // 0x43, 0x44, 0x45, 0x46, 0x47, 0,48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E,
         // 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A,
         // 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
-        // 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F
+        // 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72,
+        // 0x73, 0x74, 0x75, 0x77, 0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
+        // 0xE2, 0xEA, 0xF2, 0xF9, 0xFA
         match opcode {
             0x01 => {
                 let value = self.fetch_word();
@@ -630,14 +632,67 @@ impl Cpu {
                 load::ld(&mut self.register.e, value);
                 self.cycle += 8;
             }
+            // LD(HL), reg
+            0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x77],
+                    opcode,
+                );
+                let address = self.register.get_hl();
+                self.write_byte(address, register_value);
+                self.cycle += 8;
+            }
+            // LD A, r
+            0x78 | 0x79 | 0x7A | 0x7B | 0x7C | 0x7D | 0x7F => {
+                let register_value = self.get_reg_value_from_opcode_range(
+                    &[0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7F],
+                    opcode,
+                );
+                load::ld(&mut self.register.a, register_value);
+                self.cycle += 4;
+            }
+            0x7E => {
+                let value = self.read_byte(self.register.get_hl());
+                load::ld(&mut self.register.a, value);
+                self.cycle += 8;
+            }
+            //write to io-port C
+            0xE2 => {
+                let port_address = load::calculate_address_for_io_port(self.register.c);
+                self.write_byte(port_address, self.register.a);
+                self.cycle += 8;
+            }
+            0xEA => {
+                let address = self.fetch_word();
+                self.write_byte(address, self.register.a);
+                self.cycle += 16;
+            }
+            // read from io-port C
+            0xF2 => {
+                let port_address = load::calculate_address_for_io_port(self.register.c);
+                self.register.a = self.read_byte(port_address);
+                self.cycle += 8;
+            }
+            //0xF8 in ADD instructions
+            0xF9 => {
+                self.register.sp = self.register.get_hl();
+                self.cycle += 8;
+            }
+            0xFA => {
+                let address = self.fetch_word();
+                self.register.a = self.read_byte(address);
+                self.cycle += 16;
+            }
 
             _ => panic!("load opcode not supported"),
         }
     }
 
     fn execute(&mut self, opcode: u8) {
-        if arithmetic_logic::is_supported_instruction(opcode) {
+        if instructions::is_supported(opcode, &arithmetic_logic::ARITHMETIC_LOGIC_OPCODES) {
             self.arithmetic_logic_instruction_dispatcher(opcode);
+        } else if instructions::is_supported(opcode, &load::LOAD_OPCODES) {
+            self.load_instruction_dispatcher(opcode);
         } else {
             panic!("Instruction not supported!");
         }
