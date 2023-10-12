@@ -120,6 +120,7 @@ mod load_ut {
     fn stack_test() {
         let mut stack: [u8; 0xFFFF] = [0xFF; 0xFFFF];
         let mut register = Registers::new();
+        register.sp = 0xFFFE;
 
         let mut exp_sp_value = register.sp - 2;
 

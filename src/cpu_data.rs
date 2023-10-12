@@ -66,7 +66,7 @@ impl Registers {
             h: 0,
             l: 0,
             pc: 0,
-            sp: 0xFFFE,
+            sp: 0,
         }
     }
 
@@ -81,6 +81,7 @@ impl Registers {
     pub fn get_hl(&self) -> u16 {
         (self.h as u16).rotate_left(8) | (self.l as u16)
     }
+
     pub fn get_af(&self) -> u16 {
         let flag_value: u8 = FlagsRegister::into(self.flag);
         (self.a as u16).rotate_left(8) | (flag_value as u16)
