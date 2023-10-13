@@ -1,8 +1,7 @@
 mod cpu;
 mod cpu_data;
 mod instructions;
-mod mmu;
-
+mod iommu;
 use cpu::Cpu;
 
 fn main() {

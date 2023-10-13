@@ -735,7 +735,6 @@ impl Cpu {
 mod cpu_ut {
 
     use super::*;
-    use crate::instructions::arithmetic_logic;
     #[test]
     fn arithmetic_logic_opcode_check() {}
 }
