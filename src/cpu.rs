@@ -1,26 +1,25 @@
 use super::cpu_data::Registers;
+use super::iommu::IOMMU;
 use crate::instructions::{self, arithmetic_logic, load};
 /// # DMG-CPU
 /// 8-bit 8080-like Sharp CPU
 pub struct Cpu {
     pub register: Registers,
     pub cycle: u32,
-    pub memory: [u8; 0xFFFF],
-    pub stack: [u8; 0xFFFF], //temporary solution
+    pub iommu: IOMMU,
 }
 impl Cpu {
     pub fn new() -> Self {
         return Cpu {
             register: Registers::new(),
             cycle: 0,
-            memory: [0xFF; 0xFFFF],
-            stack: [0xFF; 0xFFFF],
+            iommu: IOMMU::new(),
         };
     }
 
     pub fn load_program(&mut self, program: &[u8]) {
         for (index, byte) in program.iter().enumerate() {
-            self.memory[index] = *byte;
+            self.iommu.write_byte(index as u16, *byte);
         }
     }
 
@@ -31,7 +30,7 @@ impl Cpu {
     }
 
     fn fetch_byte(&mut self) -> u8 {
-        let byte = self.read_byte(self.register.pc);
+        let byte = self.iommu.read_byte(self.register.pc);
         self.register.pc = self.register.pc.wrapping_add(1);
         byte
     }
@@ -109,7 +108,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x86 => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::add(&mut self.register.flag, &mut self.register.a, val, 0);
                 self.cycle += 8;
             }
@@ -143,7 +142,7 @@ impl Cpu {
                 self.cycle += 8;
             }
             0x8E => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::adc(&mut self.register.flag, &mut self.register.a, val);
                 self.cycle += 8;
             }
@@ -163,7 +162,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x96 => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::sub(&mut self.register.flag, &mut self.register.a, val, 0);
                 self.cycle += 8;
             }
@@ -187,7 +186,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x9E => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::sbc(&mut self.register.flag, &mut self.register.a, val);
                 self.cycle += 8;
             }
@@ -211,7 +210,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0xA6 => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::and(&mut self.register.flag, &mut self.register.a, val);
                 self.cycle += 8;
             }
@@ -235,7 +234,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0xAE => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::xor(&mut self.register.flag, &mut self.register.a, val);
                 self.cycle += 8;
             }
@@ -259,7 +258,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0xB6 => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::or(&mut self.register.flag, &mut self.register.a, val);
                 self.cycle += 8;
             }
@@ -283,7 +282,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0xBE => {
-                let val = self.read_byte(self.register.get_hl());
+                let val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::cp(&mut self.register.flag, &mut self.register.a, val);
                 self.cycle += 8;
             }
@@ -343,9 +342,9 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x34 => {
-                let mut val = self.read_byte(self.register.get_hl());
+                let mut val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::inc(&mut self.register.flag, &mut val);
-                self.write_byte(self.register.get_hl(), val);
+                self.iommu.write_byte(self.register.get_hl(), val);
                 self.cycle += 12;
             }
 
@@ -399,9 +398,9 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x35 => {
-                let mut val = self.read_byte(self.register.get_hl());
+                let mut val = self.iommu.read_byte(self.register.get_hl());
                 arithmetic_logic::dec(&mut self.register.flag, &mut val);
-                self.write_byte(self.register.get_hl(), val);
+                self.iommu.write_byte(self.register.get_hl(), val);
                 self.cycle += 12;
             }
 
@@ -434,14 +433,6 @@ impl Cpu {
     }
 
     fn load_instruction_dispatcher(&mut self, opcode: u8) {
-        // 0x01, 0x02, 0x06, 0x08, 0x0A, 0x0E, 0x11, 0x12, 0x16, 0x1A, 0x1E, 0x21,
-        // 0x22, 0x26, 0x2A, 0x2E, 0x31, 0x32, 0x36, 0x3A, 0x3E, 0x40, 0x41, 0x42,
-        // 0x43, 0x44, 0x45, 0x46, 0x47, 0,48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E,
-        // 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A,
-        // 0x5B, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66,
-        // 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72,
-        // 0x73, 0x74, 0x75, 0x77, 0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
-        // 0xE2, 0xEA, 0xF2, 0xF9, 0xFA
         match opcode {
             0x01 => {
                 let value = self.fetch_word();
@@ -449,7 +440,7 @@ impl Cpu {
                 self.cycle += 12;
             }
             0x02 => {
-                let value = self.read_byte(self.register.get_bc());
+                let value = self.iommu.read_byte(self.register.get_bc());
                 load::ld(&mut self.register.a, value);
                 self.cycle += 8;
             }
@@ -460,11 +451,11 @@ impl Cpu {
             }
             0x08 => {
                 let address = self.fetch_word();
-                self.write_word(address, self.register.sp);
+                self.iommu.write_word(address, self.register.sp);
                 self.cycle += 20;
             }
             0x0A => {
-                let value = self.read_byte(self.register.get_bc());
+                let value = self.iommu.read_byte(self.register.get_bc());
                 load::ld(&mut self.register.b, value);
                 self.cycle += 8;
             }
@@ -480,7 +471,7 @@ impl Cpu {
             }
             0x12 => {
                 let address = self.register.get_de();
-                self.write_byte(address, self.register.a);
+                self.iommu.write_byte(address, self.register.a);
                 self.cycle += 8;
             }
             0x16 => {
@@ -489,7 +480,7 @@ impl Cpu {
                 self.cycle += 8;
             }
             0x1A => {
-                let value = self.read_byte(self.register.get_de());
+                let value = self.iommu.read_byte(self.register.get_de());
                 load::ld(&mut self.register.a, value);
                 self.cycle += 8;
             }
@@ -505,7 +496,7 @@ impl Cpu {
             }
             0x22 => {
                 let address = load::hli(&mut self.register.h, &mut self.register.l);
-                self.write_byte(address, self.register.a);
+                self.iommu.write_byte(address, self.register.a);
                 self.cycle += 8;
             }
             0x26 => {
@@ -515,7 +506,7 @@ impl Cpu {
             }
             0x2A => {
                 let address = load::hli(&mut self.register.h, &mut self.register.l);
-                self.register.a = self.read_byte(address);
+                self.register.a = self.iommu.read_byte(address);
                 self.cycle += 8;
             }
             0x2E => {
@@ -529,17 +520,17 @@ impl Cpu {
             }
             0x32 => {
                 let address = load::hld(&mut self.register.h, &mut self.register.l);
-                self.write_byte(address, self.register.a);
+                self.iommu.write_byte(address, self.register.a);
                 self.cycle += 8;
             }
             0x36 => {
                 let value = self.fetch_byte();
-                self.write_byte(self.register.get_hl(), value);
+                self.iommu.write_byte(self.register.get_hl(), value);
                 self.cycle += 12;
             }
             0x3A => {
                 let address = load::hld(&mut self.register.h, &mut self.register.l);
-                self.register.a = self.read_byte(address);
+                self.register.a = self.iommu.read_byte(address);
                 self.cycle += 8;
             }
             0x3E => {
@@ -557,7 +548,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x46 => {
-                let value = self.read_byte(self.register.get_hl());
+                let value = self.iommu.read_byte(self.register.get_hl());
                 load::ld(&mut self.register.b, value);
                 self.cycle += 8;
             }
@@ -571,7 +562,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x4E => {
-                let value = self.read_byte(self.register.get_hl());
+                let value = self.iommu.read_byte(self.register.get_hl());
                 load::ld(&mut self.register.c, value);
                 self.cycle += 8;
             }
@@ -585,7 +576,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x56 => {
-                let value = self.read_byte(self.register.get_hl());
+                let value = self.iommu.read_byte(self.register.get_hl());
                 load::ld(&mut self.register.d, value);
                 self.cycle += 8;
             }
@@ -599,7 +590,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x5E => {
-                let value = self.read_byte(self.register.get_hl());
+                let value = self.iommu.read_byte(self.register.get_hl());
                 load::ld(&mut self.register.e, value);
                 self.cycle += 8;
             }
@@ -614,7 +605,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x66 => {
-                let value = self.read_byte(self.register.get_hl());
+                let value = self.iommu.read_byte(self.register.get_hl());
                 load::ld(&mut self.register.h, value);
                 self.cycle += 8;
             }
@@ -628,7 +619,7 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x6E => {
-                let value = self.read_byte(self.register.get_hl());
+                let value = self.iommu.read_byte(self.register.get_hl());
                 load::ld(&mut self.register.e, value);
                 self.cycle += 8;
             }
@@ -639,7 +630,7 @@ impl Cpu {
                     opcode,
                 );
                 let address = self.register.get_hl();
-                self.write_byte(address, register_value);
+                self.iommu.write_byte(address, register_value);
                 self.cycle += 8;
             }
             // LD A, r
@@ -652,25 +643,25 @@ impl Cpu {
                 self.cycle += 4;
             }
             0x7E => {
-                let value = self.read_byte(self.register.get_hl());
+                let value = self.iommu.read_byte(self.register.get_hl());
                 load::ld(&mut self.register.a, value);
                 self.cycle += 8;
             }
             //write to io-port C
             0xE2 => {
                 let port_address = load::calculate_address_for_io_port(self.register.c);
-                self.write_byte(port_address, self.register.a);
+                self.iommu.write_byte(port_address, self.register.a);
                 self.cycle += 8;
             }
             0xEA => {
                 let address = self.fetch_word();
-                self.write_byte(address, self.register.a);
+                self.iommu.write_byte(address, self.register.a);
                 self.cycle += 16;
             }
             // read from io-port C
             0xF2 => {
                 let port_address = load::calculate_address_for_io_port(self.register.c);
-                self.register.a = self.read_byte(port_address);
+                self.register.a = self.iommu.read_byte(port_address);
                 self.cycle += 8;
             }
             //0xF8 in ADD instructions
@@ -680,7 +671,7 @@ impl Cpu {
             }
             0xFA => {
                 let address = self.fetch_word();
-                self.register.a = self.read_byte(address);
+                self.register.a = self.iommu.read_byte(address);
                 self.cycle += 16;
             }
 
@@ -697,22 +688,6 @@ impl Cpu {
             panic!("Instruction not supported!");
         }
     }
-
-    fn read_byte(&self, address: u16) -> u8 {
-        self.memory[address as usize]
-    }
-
-    fn write_byte(&mut self, address: u16, value: u8) {
-        self.memory[address as usize] = value;
-    }
-
-    fn write_word(&mut self, address: u16, value: u16) {
-        let low_byte_val = (value & 0x00FF) as u8;
-        let high_byte_val = (value & 0xFF00).rotate_right(8) as u8;
-        self.write_byte(address, low_byte_val);
-        self.write_byte(address + 1, high_byte_val);
-    }
-
     fn dump_regs(&self) {
         println!(
             "A = {}\nF.z = {}, F.n = {}, F.h = {}, F.c = {}\nB = {}\nC = {}\nD = {}\nE = {}\nH = {}\nL = {}",
