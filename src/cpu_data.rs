@@ -37,6 +37,22 @@ impl std::convert::From<FlagsRegister> for u8 {
     }
 }
 
+impl std::convert::From<u8> for FlagsRegister {
+    fn from(flag_raw_value: u8) -> FlagsRegister {
+        let z = (flag_raw_value.rotate_right(7) & 1) == 1;
+        let n = (flag_raw_value.rotate_right(6) & 1) == 1;
+        let h = (flag_raw_value.rotate_right(5) & 1) == 1;
+        let c = (flag_raw_value.rotate_right(4) & 1) == 1;
+
+        FlagsRegister {
+            z: z,
+            n: n,
+            h: h,
+            c: c,
+        }
+    }
+}
+
 pub struct Registers {
     pub a: u8,
     pub flag: FlagsRegister,
@@ -85,6 +101,27 @@ impl Registers {
     pub fn get_af(&self) -> u16 {
         let flag_value: u8 = FlagsRegister::into(self.flag);
         (self.a as u16).rotate_left(8) | (flag_value as u16)
+    }
+
+    pub fn set_bc(&mut self, value: u16) {
+        self.b = ((value & 0xFF00).rotate_right(8)) as u8;
+        self.c = (value & 0x00FF) as u8;
+    }
+
+    pub fn set_de(&mut self, value: u16) {
+        self.d = ((value & 0xFF00).rotate_right(8)) as u8;
+        self.e = (value & 0x00FF) as u8;
+    }
+
+    pub fn set_hl(&mut self, value: u16) {
+        self.h = ((value & 0xFF00).rotate_right(8)) as u8;
+        self.l = (value & 0x00FF) as u8;
+    }
+
+    pub fn set_af(&mut self, value: u16) {
+        self.a = ((value & 0xFF00).rotate_right(8)) as u8;
+        let raw_flag_value = (value & 0x00FF) as u8;
+        self.flag = FlagsRegister::from(raw_flag_value);
     }
 
     pub fn get_reg_value_from_opcode_range(&self, opcode_array: &[u8], opcode: u8) -> u8 {
@@ -144,6 +181,14 @@ mod uint_test {
         assert_eq!(0x3334, register.get_bc());
         assert_eq!(0x3536, register.get_de());
         assert_eq!(0x3738, register.get_hl());
+
+        register.set_bc(0x6968);
+        register.set_de(0x7170);
+        register.set_hl(0x7372);
+
+        assert_eq!(0x6968, register.get_bc());
+        assert_eq!(0x7170, register.get_de());
+        assert_eq!(0x7372, register.get_hl());
     }
     #[test]
     fn af_test() {
@@ -159,5 +204,9 @@ mod uint_test {
         assert_eq!(0x1E0, register.get_af());
         register.flag.c = true;
         assert_eq!(0x1F0, register.get_af());
+
+        register.set_af(0x390);
+        assert!(register.flag.z);
+        assert!(register.flag.c);
     }
 }

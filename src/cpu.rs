@@ -643,6 +643,41 @@ impl Cpu {
                 self.register.a = self.iommu.read_byte(address);
                 self.cycle += 16;
             }
+            // PUSH
+            0xC5 | 0xD5 | 0xE5 => {
+                let reg_val = self
+                    .register
+                    .get_reg16_value_from_opcode_array(&[0xC5, 0xD5, 0xE5], opcode);
+                load::push(&mut self.iommu, &mut self.register.sp, reg_val);
+                self.cycle += 16;
+            }
+            //AF
+            0xF5 => {
+                let reg_val = self.register.get_af();
+                load::push(&mut self.iommu, &mut self.register.sp, reg_val);
+                self.cycle += 16;
+            }
+            // POP
+            0xC1 => {
+                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                self.register.set_bc(value);
+                self.cycle += 12;
+            }
+            0xD1 => {
+                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                self.register.set_de(value);
+                self.cycle += 12;
+            }
+            0xE1 => {
+                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                self.register.set_hl(value);
+                self.cycle += 12;
+            }
+            0xF1 => {
+                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                self.register.set_af(value);
+                self.cycle += 12;
+            }
 
             _ => panic!("load opcode not supported"),
         }
