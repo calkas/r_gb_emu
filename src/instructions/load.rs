@@ -1,3 +1,5 @@
+use crate::iommu::IOMMU;
+
 pub static LOAD_OPCODES: [u8; 89] = [
     0x01, 0x02, 0x06, 0x08, 0x0A, 0x0E, 0x11, 0x12, 0x16, 0x1A, 0x1E, 0x21, 0x22, 0x26, 0x2A, 0x2E,
     0x31, 0x32, 0x36, 0x3A, 0x3E, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A,
@@ -35,31 +37,22 @@ pub fn hld(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
     reg_hl_val
 }
 
-pub fn push(stack: &mut [u8], reg_sp: &mut u16, value: u16) {
-    let low_byte_val = (value & 0x00FF) as u8;
-    let high_byte_val = (value & 0xFF00).rotate_right(8) as u8;
-
-    stack[*reg_sp as usize] = high_byte_val;
-    *reg_sp = reg_sp.wrapping_sub(1);
-    stack[*reg_sp as usize] = low_byte_val;
-    *reg_sp = reg_sp.wrapping_sub(1);
+pub fn push(stack: &mut IOMMU, reg_sp: &mut u16, value: u16) {
+    *reg_sp = reg_sp.wrapping_sub(2);
+    stack.write_word(*reg_sp, value)
 }
 
-fn pop(stack: &mut [u8], reg_sp: &mut u16) -> u16 {
-    if *reg_sp == 0xFFFE {
-        panic!("Error pop stack operation");
-    }
-    *reg_sp += 1;
-    let low_byte_val = stack[*reg_sp as usize];
-    *reg_sp += 1;
-    let high_byte_val = stack[*reg_sp as usize];
-    (high_byte_val as u16).rotate_left(8) | (low_byte_val as u16)
+fn pop(stack: &mut IOMMU, reg_sp: &mut u16) -> u16 {
+    let value = stack.read_word(*reg_sp);
+    *reg_sp = reg_sp.wrapping_add(2);
+    value
 }
 
 #[cfg(test)]
 mod load_ut {
     use super::*;
     use crate::cpu_data::Registers;
+    use crate::iommu::IOMMU;
     #[test]
     fn ld_test() {
         let mut register = Registers::new();
@@ -118,28 +111,28 @@ mod load_ut {
 
     #[test]
     fn stack_test() {
-        let mut stack: [u8; 0xFFFF] = [0xFF; 0xFFFF];
         let mut register = Registers::new();
+        let mut iommu = IOMMU::new();
         register.sp = 0xFFFE;
 
         let mut exp_sp_value = register.sp - 2;
 
-        push(&mut stack, &mut register.sp, 0x8001);
+        push(&mut iommu, &mut register.sp, 0x8001);
         assert_eq!(exp_sp_value, register.sp);
-        push(&mut stack, &mut register.sp, 0x8002);
+        push(&mut iommu, &mut register.sp, 0x8002);
         exp_sp_value -= 2;
         assert_eq!(exp_sp_value, register.sp);
-        push(&mut stack, &mut register.sp, 0x8003);
+        push(&mut iommu, &mut register.sp, 0x8003);
         exp_sp_value -= 2;
         assert_eq!(exp_sp_value, register.sp);
 
-        assert_eq!(0x8003, pop(&mut stack, &mut register.sp));
+        assert_eq!(0x8003, pop(&mut iommu, &mut register.sp));
         exp_sp_value += 2;
         assert_eq!(exp_sp_value, register.sp);
-        assert_eq!(0x8002, pop(&mut stack, &mut register.sp));
+        assert_eq!(0x8002, pop(&mut iommu, &mut register.sp));
         exp_sp_value += 2;
         assert_eq!(exp_sp_value, register.sp);
-        assert_eq!(0x8001, pop(&mut stack, &mut register.sp));
+        assert_eq!(0x8001, pop(&mut iommu, &mut register.sp));
         exp_sp_value += 2;
         assert_eq!(exp_sp_value, register.sp);
     }

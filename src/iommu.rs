@@ -1,4 +1,5 @@
-const WRAM_SIZE: usize = 0xFFFF;
+pub const WRAM_SIZE: usize = 0xFFFF;
+pub const STACK_SIZE: usize = 0x7F; //FF80 - FFFE
 
 /// # I/O Memory Management
 /// - Working RAM 8 KiB

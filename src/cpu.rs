@@ -1,6 +1,9 @@
 use super::cpu_data::Registers;
 use super::iommu::IOMMU;
-use crate::instructions::{self, arithmetic_logic, load};
+use crate::{
+    instructions::{self, arithmetic_logic, load},
+    iommu::{STACK_SIZE, WRAM_SIZE},
+};
 /// # DMG-CPU
 /// 8-bit 8080-like Sharp CPU
 pub struct Cpu {
@@ -18,9 +21,13 @@ impl Cpu {
     }
 
     pub fn load_program(&mut self, program: &[u8]) {
+        //Temporary solution
+        assert!(program.len() < WRAM_SIZE - STACK_SIZE);
         for (index, byte) in program.iter().enumerate() {
             self.iommu.write_byte(index as u16, *byte);
         }
+        //Set stack pointer
+        self.register.sp = 0xFFFE;
     }
 
     pub fn process(&mut self) {
