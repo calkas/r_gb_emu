@@ -41,51 +41,13 @@ impl Cpu {
         (high_byte as u16).rotate_left(8) | (low_byte as u16)
     }
 
-    fn get_reg_value_from_opcode_range(&self, opcode_array: &[u8], opcode: u8) -> u8 {
-        assert!(opcode_array.len() == 7);
-        let mut reg_id: usize = 0xFF;
-        for (id, element) in opcode_array.iter().enumerate() {
-            if opcode == *element {
-                reg_id = id;
-            }
-        }
-
-        match reg_id {
-            0 => self.register.b,
-            1 => self.register.c,
-            2 => self.register.d,
-            3 => self.register.e,
-            4 => self.register.h,
-            5 => self.register.l,
-            6 => self.register.a,
-            _ => panic!("opcode does not exist in looking array"),
-        }
-    }
-
-    fn get_reg16_value_from_opcode_array(&self, opcode_array: &[u8], opcode: u8) -> u16 {
-        assert!(opcode_array.len() == 4);
-        let mut reg_id: usize = 0xFF;
-        for (id, element) in opcode_array.iter().enumerate() {
-            if opcode == *element {
-                reg_id = id;
-            }
-        }
-
-        match reg_id {
-            0 => self.register.get_bc(),
-            1 => self.register.get_de(),
-            2 => self.register.get_hl(),
-            3 => self.register.sp,
-            _ => panic!("opcode does not exist in looking array"),
-        }
-    }
-
     fn arithmetic_logic_instruction_dispatcher(&mut self, opcode: u8) {
         match opcode {
             // .::ADD operation::.
             0x09 | 0x19 | 0x29 | 0x39 => {
-                let value =
-                    self.get_reg16_value_from_opcode_array(&[0x09, 0x19, 0x29, 0x39], opcode);
+                let value = self
+                    .register
+                    .get_reg16_value_from_opcode_array(&[0x09, 0x19, 0x29, 0x39], opcode);
                 arithmetic_logic::add_hl(
                     &mut self.register.flag,
                     &mut self.register.h,
@@ -95,7 +57,7 @@ impl Cpu {
                 self.cycle += 8;
             }
             0x80 | 0x81 | 0x82 | 0x83 | 0x84 | 0x85 | 0x87 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x87],
                     opcode,
                 );
@@ -125,7 +87,7 @@ impl Cpu {
 
             // .::ADC operation::.
             0x88 | 0x89 | 0x8A | 0x8B | 0x8C | 0x8D | 0x8F => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8F],
                     opcode,
                 );
@@ -149,7 +111,7 @@ impl Cpu {
 
             // .::SUB operation::.
             0x90 | 0x91 | 0x92 | 0x93 | 0x94 | 0x95 | 0x97 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x97],
                     opcode,
                 );
@@ -174,7 +136,7 @@ impl Cpu {
 
             // .::SBC operation::.
             0x98 | 0x99 | 0x9A | 0x9B | 0x9C | 0x9D | 0x9F => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9F],
                     opcode,
                 );
@@ -198,7 +160,7 @@ impl Cpu {
 
             // .::AND operation::.
             0xA0 | 0xA1 | 0xA2 | 0xA3 | 0xA4 | 0xA5 | 0xA7 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA7],
                     opcode,
                 );
@@ -222,7 +184,7 @@ impl Cpu {
 
             // .::XOR operation::.
             0xA8 | 0xA9 | 0xAA | 0xAB | 0xAC | 0xAD | 0xAF => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAF],
                     opcode,
                 );
@@ -246,7 +208,7 @@ impl Cpu {
 
             // .::OR operation::.
             0xB0 | 0xB1 | 0xB2 | 0xB3 | 0xB4 | 0xB5 | 0xB7 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB7],
                     opcode,
                 );
@@ -270,7 +232,7 @@ impl Cpu {
 
             // .::CP operation::.
             0xB8 | 0xB9 | 0xBA | 0xBB | 0xBC | 0xBD | 0xBF => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0xB8, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBF],
                     opcode,
                 );
@@ -540,7 +502,7 @@ impl Cpu {
             }
             // LD B, r
             0x40 | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x47 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x47],
                     opcode,
                 );
@@ -554,7 +516,7 @@ impl Cpu {
             }
             // LD C, r
             0x48 | 0x49 | 0x4A | 0x4B | 0x4C | 0x4D | 0x4F => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4F],
                     opcode,
                 );
@@ -568,7 +530,7 @@ impl Cpu {
             }
             // LD D, r
             0x50 | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 | 0x57 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x57],
                     opcode,
                 );
@@ -582,7 +544,7 @@ impl Cpu {
             }
             // LD E, r
             0x58 | 0x59 | 0x5A | 0x5B | 0x5C | 0x5D | 0x5F => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5F],
                     opcode,
                 );
@@ -597,7 +559,7 @@ impl Cpu {
 
             // LD H, r
             0x60 | 0x61 | 0x62 | 0x63 | 0x64 | 0x65 | 0x67 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x67],
                     opcode,
                 );
@@ -611,7 +573,7 @@ impl Cpu {
             }
             // LD L, r
             0x68 | 0x69 | 0x6A | 0x6B | 0x6C | 0x6D | 0x6F => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6F],
                     opcode,
                 );
@@ -625,7 +587,7 @@ impl Cpu {
             }
             // LD(HL), reg
             0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x77],
                     opcode,
                 );
@@ -635,7 +597,7 @@ impl Cpu {
             }
             // LD A, r
             0x78 | 0x79 | 0x7A | 0x7B | 0x7C | 0x7D | 0x7F => {
-                let register_value = self.get_reg_value_from_opcode_range(
+                let register_value = self.register.get_reg_value_from_opcode_range(
                     &[0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7F],
                     opcode,
                 );

@@ -86,6 +86,44 @@ impl Registers {
         let flag_value: u8 = FlagsRegister::into(self.flag);
         (self.a as u16).rotate_left(8) | (flag_value as u16)
     }
+
+    pub fn get_reg_value_from_opcode_range(&self, opcode_array: &[u8], opcode: u8) -> u8 {
+        assert!(opcode_array.len() == 7);
+        let mut reg_id: usize = 0xFF;
+        for (id, element) in opcode_array.iter().enumerate() {
+            if opcode == *element {
+                reg_id = id;
+            }
+        }
+        match reg_id {
+            0 => self.b,
+            1 => self.c,
+            2 => self.d,
+            3 => self.e,
+            4 => self.h,
+            5 => self.l,
+            6 => self.a,
+            _ => panic!("opcode does not exist in looking array"),
+        }
+    }
+
+    pub fn get_reg16_value_from_opcode_array(&self, opcode_array: &[u8], opcode: u8) -> u16 {
+        assert!(opcode_array.len() == 4);
+        let mut reg_id: usize = 0xFF;
+        for (id, element) in opcode_array.iter().enumerate() {
+            if opcode == *element {
+                reg_id = id;
+            }
+        }
+
+        match reg_id {
+            0 => self.get_bc(),
+            1 => self.get_de(),
+            2 => self.get_hl(),
+            3 => self.sp,
+            _ => panic!("opcode does not exist in looking array"),
+        }
+    }
 }
 
 #[cfg(test)]
