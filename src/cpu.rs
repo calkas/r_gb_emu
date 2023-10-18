@@ -713,7 +713,7 @@ impl Cpu {
 #[cfg(test)]
 mod cpu_ut {
 
-    use super::*;
+    //use super::*;
     #[test]
     fn arithmetic_logic_opcode_check() {}
 }
