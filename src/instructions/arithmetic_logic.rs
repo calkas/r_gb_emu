@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::cpu_data::FlagsRegister;
 
 pub static ARITHMETIC_LOGIC_OPCODES: [u8; 104] = [
@@ -21,11 +23,12 @@ fn half_carry_on_addition_16(a: u16, b: u16) -> bool {
 fn half_carry_on_subtration(a: u8, b: u8) -> bool {
     (a & 0x0F) < (b & 0x0F)
 }
-#[warn(dead_code)]
+
 fn half_carry_on_subtration_16(a: u16, b: u16) -> bool {
     (a & 0x00FF) < (b & 0x00FF)
 }
-
+/// # add
+/// ADD operation
 pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
     let (new_value, did_overflow) = acc.overflowing_add(value + carry_value);
     flag.c = false;
@@ -46,7 +49,8 @@ pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
     }
     *acc = new_value;
 }
-
+/// # add_hl
+/// ADDHL (add to HL) - just like ADD except that the target is added to the HL register
 pub fn add_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, reg_16_value: u16) {
     let hl_reg_value = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
     let (new_value, did_overflow) = hl_reg_value.overflowing_add(reg_16_value);
@@ -67,6 +71,8 @@ pub fn add_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, reg_16_v
     *reg_l = (new_value & 0x00FF) as u8;
 }
 
+/// # add_sp
+/// perform add operation value to sp register
 pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
     let coverted_value = value as i8 as i16 as u16;
     let (new_value, did_overflow) = reg_sp.overflowing_add(coverted_value);
@@ -87,11 +93,15 @@ pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
     *reg_sp = new_value;
 }
 
+/// # adc
+/// ADC (add with carry) - just like ADD except that the value of the carry flag is also added to the number
 pub fn adc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     let carry_val = if flag.c == true { 1 } else { 0 };
     add(flag, acc, value, carry_val);
 }
 
+/// # sub
+/// SUB (subtract) - subtract the value stored in a specific register with the value in the A register
 pub fn sub(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
     let (new_value, did_overflow) = acc.overflowing_sub(value + carry_value);
 
@@ -114,11 +124,15 @@ pub fn sub(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
     *acc = new_value;
 }
 
+/// # sbc
+/// SBC (subtract with carry) - just like ADD except that the value of the carry flag is also subtracted from the number
 pub fn sbc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     let carry_val = if flag.c == true { 1 } else { 0 };
     sub(flag, acc, value, carry_val);
 }
 
+/// # and
+/// AND (logical and) - do a bitwise and on the value in a specific register and the value in the A register
 pub fn and(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     *acc &= value;
     flag.z = false;
@@ -131,6 +145,8 @@ pub fn and(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     }
 }
 
+/// # xor
+/// XOR (logical xor) - do a bitwise xor on the value in a specific register and the value in the A register
 pub fn xor(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     *acc ^= value;
     flag.z = false;
@@ -143,6 +159,8 @@ pub fn xor(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     }
 }
 
+/// # or
+/// OR (logical or) - do a bitwise or on the value in a specific register and the value in the A register
 pub fn or(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     *acc |= value;
     flag.z = false;
@@ -155,12 +173,16 @@ pub fn or(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     }
 }
 
+/// # cp
+/// CP (compare) - just like SUB except the result of the subtraction is not stored back into A
 pub fn cp(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
     let saved_acc = *acc;
     sub(flag, acc, value, 0);
     *acc = saved_acc;
 }
 
+/// # inc
+/// INC (increment) - increment the value in a specific register by 1
 pub fn inc(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
     let result = reg_or_data.wrapping_add(1);
 
@@ -179,6 +201,8 @@ pub fn inc(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
     *reg_or_data = result;
 }
 
+/// # inc_16
+/// INC (increment) - increment the 16-bit value in a specific register by 1
 pub fn inc_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
     let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
     reg_value = reg_value.wrapping_add(1);
@@ -187,6 +211,8 @@ pub fn inc_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
     *reg_low_byte = (reg_value & 0x00FF) as u8;
 }
 
+/// # dec
+/// DEC (decrement) - decrement the value in a specific register by 1
 pub fn dec(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
     let result = reg_or_data.wrapping_sub(1);
 
@@ -205,6 +231,8 @@ pub fn dec(flag: &mut FlagsRegister, reg_or_data: &mut u8) {
     *reg_or_data = result;
 }
 
+/// # dec_16
+/// DEC (decrement) - decrement the 16-bit value in a specific register by 1
 pub fn dec_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
     let mut reg_value = (*reg_high_byte as u16).rotate_left(8) | (*reg_low_byte as u16);
     reg_value = reg_value.wrapping_sub(1);
@@ -213,6 +241,8 @@ pub fn dec_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8) {
     *reg_low_byte = (reg_value & 0x00FF) as u8;
 }
 
+/// # daa
+/// DAA - decimal adjust A
 pub fn daa(flag: &mut FlagsRegister, acc: &mut u8) {
     let mut a = *acc;
 
@@ -248,11 +278,16 @@ pub fn daa(flag: &mut FlagsRegister, acc: &mut u8) {
     *acc = a;
 }
 
+/// # cpl
+/// CPL (complement) - toggle every bit of the A register
 pub fn cpl(flag: &mut FlagsRegister, acc: &mut u8) {
     *acc ^= 0xFF;
     flag.h = true;
     flag.n = true;
 }
+
+/// # ld_hl
+/// HL = SP +/- dd ; dd is 8-bit signed number
 pub fn ld_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, sp_reg: u16, value: i8) {
     let reg_hl = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
 
