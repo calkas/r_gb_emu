@@ -1,7 +1,7 @@
 use super::cpu_data::Registers;
 use super::iommu::IOMMU;
 use crate::{
-    instructions::{self, arithmetic_logic, load},
+    instructions::{self, arithmetic_logic, load, single_bit_operation},
     iommu::{STACK_SIZE, WRAM_SIZE},
 };
 /// # DMG-CPU
@@ -32,8 +32,18 @@ impl Cpu {
 
     pub fn process(&mut self) {
         let opcode = self.fetch_byte();
-        self.execute(opcode);
+        if self.is_prefix_instruction(opcode) {
+            let opcode = self.fetch_byte();
+            self.execute_prefix_instruction(opcode);
+        } else {
+            self.execute(opcode);
+        }
+
         self.dump_regs();
+    }
+
+    fn is_prefix_instruction(&self, opcode: u8) -> bool {
+        opcode == 0xCB
     }
 
     fn fetch_byte(&mut self) -> u8 {
@@ -678,16 +688,35 @@ impl Cpu {
                 self.register.set_af(value);
                 self.cycle += 12;
             }
-
             _ => panic!("load opcode not supported"),
         }
     }
+
+    fn rotate_and_shift_operation_dispatcher(&mut self, opcode: u8) {
+        match opcode {
+            _ => panic!("rotate and shift opcode not supported"),
+        }
+    }
+
+    fn single_bit_operation_dispatcher(&mut self, opcode: u8) {
+        match opcode {
+            0x40 => {}
+            _ => panic!("single bit opcode not supported"),
+        }
+    }
+
+    fn execute_prefix_instruction(&mut self, opcode: u8) {}
 
     fn execute(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &arithmetic_logic::ARITHMETIC_LOGIC_OPCODES) {
             self.arithmetic_logic_instruction_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &load::LOAD_OPCODES) {
             self.load_instruction_dispatcher(opcode);
+        } else if instructions::is_supported(
+            opcode,
+            &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES,
+        ) {
+            self.single_bit_operation_dispatcher(opcode);
         } else {
             panic!("Instruction not supported!");
         }
