@@ -79,6 +79,50 @@ pub fn rra(flag: &mut FlagsRegister, acc: &mut u8) {
     flag.z = false;
 }
 
+/// # sla
+/// SLA (shift left arithmetic) - arithmetic shift a specific register left by 1 (b0=0)
+pub fn sla(flag: &mut FlagsRegister, register_or_value: &mut u8) {
+    let msb_bit = (*register_or_value & 0x80).rotate_right(7);
+    *register_or_value = *register_or_value << 1;
+
+    flag.n = false;
+    flag.h = false;
+    flag.z = if *register_or_value == 0 { true } else { false };
+    flag.c = if msb_bit == 1 { true } else { false };
+}
+
+/// # sra
+/// SRA (shift right arithmetic) - arithmetic shift a specific register right by 1 (b7=b7)
+pub fn sra(flag: &mut FlagsRegister, register_or_value: &mut u8) {
+    let lsb_bit = *register_or_value & 0x01;
+    *register_or_value = *register_or_value >> 1 | (*register_or_value & 0x80);
+
+    flag.n = false;
+    flag.h = false;
+    flag.z = if *register_or_value == 0 { true } else { false };
+    flag.c = if lsb_bit == 1 { true } else { false };
+}
+/// # swap
+/// SWAP (swap nibbles) - switch upper and lower nibble of a specific register
+pub fn swap(flag: &mut FlagsRegister, register_or_value: &mut u8) {
+    *register_or_value = (*register_or_value >> 4) | (*register_or_value << 4);
+    flag.n = false;
+    flag.h = false;
+    flag.z = if *register_or_value == 0 { true } else { false };
+    flag.c = false;
+}
+
+/// #srl
+/// (SRL) - shift right logical (b7=0)
+pub fn srl(flag: &mut FlagsRegister, register_or_value: &mut u8) {
+    let lsb_bit = *register_or_value & 0x01;
+    *register_or_value = *register_or_value >> 1;
+
+    flag.n = false;
+    flag.h = false;
+    flag.z = if *register_or_value == 0 { true } else { false };
+    flag.c = if lsb_bit == 1 { true } else { false };
+}
 #[cfg(test)]
 mod ut_test {
 
@@ -154,5 +198,66 @@ mod ut_test {
         assert!(register.flag.n == false);
         assert!(register.flag.h == false);
         assert!(register.flag.c == false);
+    }
+
+    #[test]
+    fn sla_test() {
+        let mut register = Registers::new();
+        register.a = 0x99;
+        register.flag.n = true;
+        register.flag.h = true;
+
+        sla(&mut register.flag, &mut register.a);
+
+        assert_eq!(0x32, register.a);
+        assert!(register.flag.z == false);
+        assert!(register.flag.n == false);
+        assert!(register.flag.h == false);
+        assert!(register.flag.c == true);
+    }
+
+    #[test]
+    fn sra_test() {
+        let mut register = Registers::new();
+        register.a = 0xC1;
+        register.flag.n = true;
+        register.flag.h = true;
+
+        sra(&mut register.flag, &mut register.a);
+
+        assert_eq!(0xE0, register.a);
+        assert!(register.flag.z == false);
+        assert!(register.flag.n == false);
+        assert!(register.flag.h == false);
+        assert!(register.flag.c == true);
+    }
+
+    #[test]
+    fn swap_test() {
+        let mut register = Registers::new();
+        register.a = 0xF1;
+
+        swap(&mut register.flag, &mut register.a);
+
+        assert_eq!(0x1F, register.a);
+        assert!(register.flag.z == false);
+        assert!(register.flag.n == false);
+        assert!(register.flag.h == false);
+        assert!(register.flag.c == false);
+    }
+    #[test]
+    fn srl_test() {
+        let mut register = Registers::new();
+        register.a = 0xC1;
+        register.flag.n = true;
+        register.flag.h = true;
+
+        srl(&mut register.flag, &mut register.a);
+
+        assert_eq!(0x60, register.a);
+        assert!(register.flag.z == false);
+        assert!(register.flag.n == false);
+        assert!(register.flag.h == false);
+        assert!(register.flag.c == true);
     }
 }
