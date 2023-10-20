@@ -9,28 +9,35 @@ pub static LOAD_OPCODES: [u8; 97] = [
     0x7C, 0x7D, 0x7E, 0x7F, 0xE2, 0xEA, 0xF2, 0xF9, 0xFA, 0xC5, 0xD5, 0xE5, 0xF5, 0xC1, 0xD1, 0xE1,
     0xF1,
 ];
-
+/// # ld
+/// LD (load)
 pub fn ld(out_reg: &mut u8, value: u8) {
     *out_reg = value;
 }
 
+/// # ld_16
+/// LD (load) - load 16-bit value
 pub fn ld_16(reg_high_byte: &mut u8, reg_low_byte: &mut u8, value: u16) {
     *reg_high_byte = ((value & 0xFF00).rotate_right(8)) as u8;
     *reg_low_byte = (value & 0x00FF) as u8;
 }
 
+/// # calculate_address_for_io_port
+/// Used for read from io-port n (memory FF00+n)
 pub fn calculate_address_for_io_port(val: u8) -> u16 {
     0xFF00 | val as u16
 }
 
-//ldi
+/// # hli
+/// Used to handle LDI instruction
 pub fn hli(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
     let reg_hl_val = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
     *reg_h = (((reg_hl_val + 1) & 0xFF00).rotate_right(8)) as u8;
     *reg_l = ((reg_hl_val + 1) & 0x00FF) as u8;
     reg_hl_val
 }
-//ldd
+/// # hld
+/// Used to handle LDD instruction
 pub fn hld(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
     let reg_hl_val = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
     *reg_h = (((reg_hl_val - 1) & 0xFF00).rotate_right(8)) as u8;
@@ -38,11 +45,15 @@ pub fn hld(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
     reg_hl_val
 }
 
+/// # push
+/// PUSH on stack
 pub fn push(stack: &mut IOMMU, reg_sp: &mut u16, value: u16) {
     *reg_sp = reg_sp.wrapping_sub(2);
     stack.write_word(*reg_sp, value)
 }
 
+/// # pop
+/// POP from stack
 pub fn pop(stack: &mut IOMMU, reg_sp: &mut u16) -> u16 {
     let value = stack.read_word(*reg_sp);
     *reg_sp = reg_sp.wrapping_add(2);
