@@ -1,5 +1,7 @@
 use crate::cpu_data::FlagsRegister;
 
+pub static ROTATE_SHIFT_OPERATION_OPCODES: [u8; 1] = [0x0];
+
 /// # rlc
 /// RLC (rotate left register) - bit rotate register left (not through the carry flag)
 pub fn rlc(flag: &mut FlagsRegister, register_or_value: &mut u8) {
