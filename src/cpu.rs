@@ -938,18 +938,19 @@ impl Cpu {
         }
     }
 
-    fn execute_prefix_instruction(&mut self, opcode: u8) {}
+    fn execute_prefix_instruction(&mut self, opcode: u8) {
+        if instructions::is_supported(opcode, &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES) {
+            self.single_bit_operation_dispatcher(opcode);
+        } else {
+            panic!("Prefix Instruction [{}] not supported!", opcode);
+        }
+    }
 
     fn execute(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &arithmetic_logic::ARITHMETIC_LOGIC_OPCODES) {
             self.arithmetic_logic_instruction_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &load::LOAD_OPCODES) {
             self.load_instruction_dispatcher(opcode);
-        } else if instructions::is_supported(
-            opcode,
-            &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES,
-        ) {
-            self.single_bit_operation_dispatcher(opcode);
         } else {
             panic!("Instruction [{}] not supported!", opcode);
         }
