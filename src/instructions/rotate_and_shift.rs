@@ -6,12 +6,12 @@ pub static ROTATE_SHIFT_OPERATION_OPCODES: [u8; 1] = [0x0];
 /// RLC (rotate left register) - bit rotate register left (not through the carry flag)
 pub fn rlc(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     let msb_bit = (*register_or_value & 0x80).rotate_right(7);
-    *register_or_value = ((*register_or_value) << 1 as u8) | msb_bit;
+    *register_or_value = (*register_or_value << 1_u8) | msb_bit;
 
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
-    flag.c = if msb_bit == 1 { true } else { false };
+    flag.z = *register_or_value == 0;
+    flag.c = msb_bit == 1;
 }
 
 /// # rl
@@ -19,24 +19,24 @@ pub fn rlc(flag: &mut FlagsRegister, register_or_value: &mut u8) {
 pub fn rl(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     let old_carry_val: u8 = if flag.c { 1 } else { 0 };
     let msb_bit = (*register_or_value & 0x80).rotate_right(7);
-    *register_or_value = ((*register_or_value) << 1 as u8) | old_carry_val;
+    *register_or_value = (*register_or_value << 1_u8) | old_carry_val;
 
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
-    flag.c = if msb_bit == 1 { true } else { false };
+    flag.z = *register_or_value == 0;
+    flag.c = msb_bit == 1;
 }
 
 /// #rrc
 /// RRC (rotate right register) - bit rotate register right (not through the carry flag)
 pub fn rrc(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     let lsb_bit = *register_or_value & 0x01;
-    *register_or_value = ((*register_or_value) >> 1 as u8) | (0x80 & lsb_bit.rotate_left(7));
+    *register_or_value = (*register_or_value >> 1_u8) | (0x80 & lsb_bit.rotate_left(7));
 
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
-    flag.c = if lsb_bit == 1 { true } else { false };
+    flag.z = *register_or_value == 0;
+    flag.c = lsb_bit == 1;
 }
 
 /// # rr
@@ -45,12 +45,12 @@ pub fn rr(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     let old_carry_val: u8 = if flag.c { 1 } else { 0 };
     let lsb_bit = *register_or_value & 0x01;
 
-    *register_or_value = ((*register_or_value) >> 1 as u8) | old_carry_val.rotate_left(7);
+    *register_or_value = (*register_or_value >> 1u8) | old_carry_val.rotate_left(7);
 
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
-    flag.c = if lsb_bit == 1 { true } else { false };
+    flag.z = *register_or_value == 0;
+    flag.c = lsb_bit == 1;
 }
 
 /// # rlca
@@ -85,12 +85,12 @@ pub fn rra(flag: &mut FlagsRegister, acc: &mut u8) {
 /// SLA (shift left arithmetic) - arithmetic shift a specific register left by 1 (b0=0)
 pub fn sla(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     let msb_bit = (*register_or_value & 0x80).rotate_right(7);
-    *register_or_value = *register_or_value << 1;
+    *register_or_value <<= 1;
 
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
-    flag.c = if msb_bit == 1 { true } else { false };
+    flag.z = *register_or_value == 0;
+    flag.c = msb_bit == 1;
 }
 
 /// # sra
@@ -101,8 +101,8 @@ pub fn sra(flag: &mut FlagsRegister, register_or_value: &mut u8) {
 
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
-    flag.c = if lsb_bit == 1 { true } else { false };
+    flag.z = *register_or_value == 0;
+    flag.c = lsb_bit == 1;
 }
 /// # swap
 /// SWAP (swap nibbles) - switch upper and lower nibble of a specific register
@@ -110,7 +110,7 @@ pub fn swap(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     *register_or_value = (*register_or_value >> 4) | (*register_or_value << 4);
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
+    flag.z = *register_or_value == 0;
     flag.c = false;
 }
 
@@ -118,12 +118,12 @@ pub fn swap(flag: &mut FlagsRegister, register_or_value: &mut u8) {
 /// (SRL) - shift right logical (b7=0)
 pub fn srl(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     let lsb_bit = *register_or_value & 0x01;
-    *register_or_value = *register_or_value >> 1;
+    *register_or_value >>= 1;
 
     flag.n = false;
     flag.h = false;
-    flag.z = if *register_or_value == 0 { true } else { false };
-    flag.c = if lsb_bit == 1 { true } else { false };
+    flag.z = *register_or_value == 0;
+    flag.c = lsb_bit == 1;
 }
 #[cfg(test)]
 mod ut_test {

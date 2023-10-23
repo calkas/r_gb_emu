@@ -74,7 +74,7 @@ pub fn add_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, reg_16_v
 /// # add_sp
 /// perform add operation value to sp register
 pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
-    let coverted_value = value as i8 as i16 as u16;
+    let coverted_value = value as i16 as u16;
     let (new_value, did_overflow) = reg_sp.overflowing_add(coverted_value);
 
     flag.h = false;
@@ -96,7 +96,7 @@ pub fn add_sp(flag: &mut FlagsRegister, reg_sp: &mut u16, value: i8) {
 /// # adc
 /// ADC (add with carry) - just like ADD except that the value of the carry flag is also added to the number
 pub fn adc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-    let carry_val = if flag.c == true { 1 } else { 0 };
+    let carry_val = if flag.c { 1 } else { 0 };
     add(flag, acc, value, carry_val);
 }
 
@@ -127,7 +127,7 @@ pub fn sub(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
 /// # sbc
 /// SBC (subtract with carry) - just like ADD except that the value of the carry flag is also subtracted from the number
 pub fn sbc(flag: &mut FlagsRegister, acc: &mut u8, value: u8) {
-    let carry_val = if flag.c == true { 1 } else { 0 };
+    let carry_val = if flag.c { 1 } else { 0 };
     sub(flag, acc, value, carry_val);
 }
 
@@ -291,7 +291,7 @@ pub fn cpl(flag: &mut FlagsRegister, acc: &mut u8) {
 pub fn ld_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, sp_reg: u16, value: i8) {
     let reg_hl = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
 
-    let coverted_value = value as i8 as i16 as u16;
+    let coverted_value = value as i16 as u16;
     let (new_value, did_overflow) = reg_hl.overflowing_add(coverted_value + sp_reg);
 
     flag.h = false;

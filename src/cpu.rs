@@ -13,11 +13,11 @@ pub struct Cpu {
 }
 impl Cpu {
     pub fn new() -> Self {
-        return Cpu {
+        Cpu {
             register: Registers::new(),
             cycle: 0,
             iommu: IOMMU::new(),
-        };
+        }
     }
 
     pub fn load_program(&mut self, program: &[u8]) {

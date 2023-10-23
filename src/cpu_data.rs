@@ -44,12 +44,7 @@ impl std::convert::From<u8> for FlagsRegister {
         let h = (flag_raw_value.rotate_right(5) & 1) == 1;
         let c = (flag_raw_value.rotate_right(4) & 1) == 1;
 
-        FlagsRegister {
-            z: z,
-            n: n,
-            h: h,
-            c: c,
-        }
+        FlagsRegister { z, n, h, c }
     }
 }
 

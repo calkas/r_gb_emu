@@ -15,13 +15,13 @@ pub fn bit(flag: &mut FlagsRegister, register_or_value: u8, bit_number: u8) {
 /// # set
 /// (bit set) - set a specific bit of a specific register to 1
 pub fn set(register_or_value: &mut u8, bit_number: u8) {
-    *register_or_value = *register_or_value | 1_u8.rotate_left(bit_number as u32);
+    *register_or_value |= 1_u8.rotate_left(bit_number as u32);
 }
 
 /// # res - RESET
 /// (bit reset) - set a specific bit of a specific register to 0
 pub fn res(register_or_value: &mut u8, bit_number: u8) {
-    *register_or_value = *register_or_value & !1_u8.rotate_left(bit_number as u32);
+    *register_or_value &= !1_u8.rotate_left(bit_number as u32);
 }
 
 #[cfg(test)]

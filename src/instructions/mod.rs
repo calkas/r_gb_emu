@@ -13,5 +13,5 @@ pub fn is_supported(looking_opcode: u8, opcode_array: &[u8]) -> bool {
     if result.is_some() {
         return true;
     }
-    return false;
+    false
 }
