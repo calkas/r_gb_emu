@@ -139,6 +139,30 @@ impl Registers {
         }
     }
 
+    pub fn get_reg_address_from_opcode_range(
+        &mut self,
+        opcode_array: &[u8],
+        opcode: u8,
+    ) -> &mut u8 {
+        assert!(opcode_array.len() == 7);
+        let mut reg_id: usize = 0xFF;
+        for (id, element) in opcode_array.iter().enumerate() {
+            if opcode == *element {
+                reg_id = id;
+            }
+        }
+        match reg_id {
+            0 => &mut self.b,
+            1 => &mut self.c,
+            2 => &mut self.d,
+            3 => &mut self.e,
+            4 => &mut self.h,
+            5 => &mut self.l,
+            6 => &mut self.a,
+            _ => panic!("opcode does not exist in looking array"),
+        }
+    }
+
     pub fn get_reg16_value_from_opcode_array(&self, opcode_array: &[u8], opcode: u8) -> u16 {
         assert!(opcode_array.len() == 4);
         let mut reg_id: usize = 0xFF;
@@ -203,5 +227,47 @@ mod uint_test {
         register.set_af(0x390);
         assert!(register.flag.z);
         assert!(register.flag.c);
+    }
+
+    #[test]
+    fn get_reg_value_and_address_test() {
+        let mut register = Registers::new();
+        let exp_reg_val: [u8; 7] = [10, 11, 12, 13, 14, 15, 16];
+
+        //SET REGS
+        for opcode in exp_reg_val.iter() {
+            let mut reg =
+                register.get_reg_address_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], *opcode);
+            *reg = *opcode;
+        }
+
+        assert_eq!(
+            register.get_reg_value_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], 10),
+            register.b
+        );
+        assert_eq!(
+            register.get_reg_value_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], 11),
+            register.c
+        );
+        assert_eq!(
+            register.get_reg_value_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], 12),
+            register.d
+        );
+        assert_eq!(
+            register.get_reg_value_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], 13),
+            register.e
+        );
+        assert_eq!(
+            register.get_reg_value_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], 14),
+            register.h
+        );
+        assert_eq!(
+            register.get_reg_value_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], 15),
+            register.l
+        );
+        assert_eq!(
+            register.get_reg_value_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], 16),
+            register.a
+        );
     }
 }

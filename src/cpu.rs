@@ -407,7 +407,7 @@ impl Cpu {
                 );
                 self.cycle += 12;
             }
-            _ => panic!("arithmetic_logic opcode not supported"),
+            _ => panic!("arithmetic_logic opcode [{}] not supported!", opcode),
         }
     }
 
@@ -688,20 +688,253 @@ impl Cpu {
                 self.register.set_af(value);
                 self.cycle += 12;
             }
-            _ => panic!("load opcode not supported"),
+            _ => panic!("load opcode [{}] not supported!", opcode),
         }
     }
 
     fn rotate_and_shift_operation_dispatcher(&mut self, opcode: u8) {
         match opcode {
-            _ => panic!("rotate and shift opcode not supported"),
+            _ => panic!("rotate and shift opcode [{}] not supported!", opcode),
         }
     }
-
     fn single_bit_operation_dispatcher(&mut self, opcode: u8) {
         match opcode {
-            0x40 => {}
-            _ => panic!("single bit opcode not supported"),
+            // BIT
+            0x40 | 0x41 | 0x42 | 0x43 | 0x44 | 0x45 | 0x47 => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x47],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 0);
+                self.cycle += 8;
+            }
+            0x48 | 0x49 | 0x4A | 0x4B | 0x4C | 0x4D | 0x4F => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4F],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 1);
+                self.cycle += 8;
+            }
+            0x50 | 0x51 | 0x52 | 0x53 | 0x54 | 0x55 | 0x57 => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x57],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 2);
+                self.cycle += 8;
+            }
+            0x58 | 0x59 | 0x5A | 0x5B | 0x5C | 0x5D | 0x5F => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x58, 0x59, 0x5A, 0x5B, 0x5C, 0x5D, 0x5F],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 3);
+                self.cycle += 8;
+            }
+            0x60 | 0x61 | 0x62 | 0x63 | 0x64 | 0x65 | 0x67 => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x67],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 4);
+                self.cycle += 8;
+            }
+            0x68 | 0x69 | 0x6A | 0x6B | 0x6C | 0x6D | 0x6F => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6F],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 5);
+                self.cycle += 8;
+            }
+            0x70 | 0x71 | 0x72 | 0x73 | 0x74 | 0x75 | 0x77 => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x77],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 6);
+                self.cycle += 8;
+            }
+            0x78 | 0x79 | 0x7A | 0x7B | 0x7C | 0x7D | 0x7F => {
+                let register_value = self.register.get_reg_value_from_opcode_range(
+                    &[0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7F],
+                    opcode,
+                );
+                single_bit_operation::bit(&mut self.register.flag, register_value, 7);
+                self.cycle += 8;
+            }
+            0x46 | 0x4E | 0x56 | 0x5E | 0x66 | 0x6E | 0x76 | 0x7E => {
+                let opcode_with_bit_pos: [u8; 8] = [0x46, 0x4E, 0x56, 0x5E, 0x66, 0x6E, 0x76, 0x7E];
+                let bit_number = opcode_with_bit_pos
+                    .iter()
+                    .position(|&x| x == opcode)
+                    .unwrap() as u8;
+
+                let value = self.iommu.read_byte(self.register.get_hl());
+                single_bit_operation::bit(&mut self.register.flag, value, bit_number);
+                self.cycle += 12;
+            }
+
+            // RES
+            0x80 | 0x81 | 0x82 | 0x83 | 0x84 | 0x85 | 0x87 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x87],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 0);
+                self.cycle += 8;
+            }
+            0x88 | 0x89 | 0x8A | 0x8B | 0x8C | 0x8D | 0x8F => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8F],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 1);
+                self.cycle += 8;
+            }
+            0x90 | 0x91 | 0x92 | 0x93 | 0x94 | 0x95 | 0x97 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x97],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 2);
+                self.cycle += 8;
+            }
+            0x98 | 0x99 | 0x9A | 0x9B | 0x9C | 0x9D | 0x9F => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0x98, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9F],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 3);
+                self.cycle += 8;
+            }
+            0xA0 | 0xA1 | 0xA2 | 0xA3 | 0xA4 | 0xA5 | 0xA7 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA7],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 4);
+                self.cycle += 8;
+            }
+            0xA8 | 0xA9 | 0xAA | 0xAB | 0xAC | 0xAD | 0xAF => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xA8, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAF],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 5);
+                self.cycle += 8;
+            }
+            0xB0 | 0xB1 | 0xB2 | 0xB3 | 0xB4 | 0xB5 | 0xB7 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB7],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 6);
+                self.cycle += 8;
+            }
+            0xB9 | 0xBA | 0xBB | 0xB8 | 0xBC | 0xBD | 0xBF => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xB9, 0xBA, 0xBB, 0xB8, 0xBC, 0xBD, 0xBF],
+                    opcode,
+                );
+                single_bit_operation::res(register_address, 7);
+                self.cycle += 8;
+            }
+            0x86 | 0x8E | 0x96 | 0x9E | 0xA6 | 0xAE | 0xB6 | 0xBE => {
+                let opcode_with_bit_pos: [u8; 8] = [0x86, 0x8E, 0x96, 0x9E, 0xA6, 0xAE, 0xB6, 0xBE];
+                let bit_number = opcode_with_bit_pos
+                    .iter()
+                    .position(|&x| x == opcode)
+                    .unwrap() as u8;
+
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                single_bit_operation::res(&mut value, bit_number);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+
+            // SET
+            0xC0 | 0xC1 | 0xC2 | 0xC3 | 0xC4 | 0xC5 | 0xC7 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xC0, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC7],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 0);
+                self.cycle += 8;
+            }
+            0xC8 | 0xC9 | 0xCA | 0xCB | 0xCC | 0xCD | 0xCF => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCF],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 1);
+                self.cycle += 8;
+            }
+            0xD0 | 0xD1 | 0xD2 | 0xD3 | 0xD4 | 0xD5 | 0xD7 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD7],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 2);
+                self.cycle += 8;
+            }
+            0xD8 | 0xD9 | 0xDA | 0xDB | 0xDC | 0xDD | 0xDF => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDF],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 3);
+                self.cycle += 8;
+            }
+            0xE0 | 0xE1 | 0xE2 | 0xE3 | 0xE4 | 0xE5 | 0xE7 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xE0, 0xE1, 0xE2, 0xE3, 0xE4, 0xE5, 0xE7],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 4);
+                self.cycle += 8;
+            }
+            0xE8 | 0xE9 | 0xEA | 0xEB | 0xEC | 0xED | 0xEF => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xE8, 0xE9, 0xEA, 0xEB, 0xEC, 0xED, 0xEF],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 5);
+                self.cycle += 8;
+            }
+            0xF0 | 0xF1 | 0xF2 | 0xF3 | 0xF4 | 0xF5 | 0xF7 => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF7],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 6);
+                self.cycle += 8;
+            }
+            0xF8 | 0xF9 | 0xFA | 0xFB | 0xFC | 0xFD | 0xFF => {
+                let register_address = self.register.get_reg_address_from_opcode_range(
+                    &[0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFF],
+                    opcode,
+                );
+                single_bit_operation::set(register_address, 7);
+                self.cycle += 8;
+            }
+            0xC6 | 0xCE | 0xD6 | 0xDE | 0xE6 | 0xEE | 0xF6 | 0xFE => {
+                let opcode_with_bit_pos: [u8; 8] = [0xC6, 0xCE, 0xD6, 0xDE, 0xE6, 0xEE, 0xF6, 0xFE];
+                let bit_number = opcode_with_bit_pos
+                    .iter()
+                    .position(|&x| x == opcode)
+                    .unwrap() as u8;
+
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                single_bit_operation::set(&mut value, bit_number);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+
+            _ => panic!("single bit opcode [{}] not supported!", opcode),
         }
     }
 
@@ -718,7 +951,7 @@ impl Cpu {
         ) {
             self.single_bit_operation_dispatcher(opcode);
         } else {
-            panic!("Instruction not supported!");
+            panic!("Instruction [{}] not supported!", opcode);
         }
     }
     fn dump_regs(&self) {
