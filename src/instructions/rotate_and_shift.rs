@@ -1,5 +1,6 @@
 use crate::cpu_data::FlagsRegister;
 
+pub static ACC_ROTATE_SHIFT_OPERATION_OPCODES: [u8; 4] = [0x07, 0x17, 0x0F, 0x1F];
 pub static ROTATE_SHIFT_OPERATION_OPCODES: [u8; 1] = [0x0];
 
 /// # rlc

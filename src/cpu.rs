@@ -1,7 +1,11 @@
 use super::cpu_data::Registers;
 use super::iommu::IOMMU;
 use crate::{
-    instructions::{self, arithmetic_logic, load, single_bit_operation},
+    instructions::{
+        self, arithmetic_logic, load,
+        rotate_and_shift::{self, ACC_ROTATE_SHIFT_OPERATION_OPCODES},
+        single_bit_operation,
+    },
     iommu::{STACK_SIZE, WRAM_SIZE},
 };
 /// # DMG-CPU
@@ -692,6 +696,28 @@ impl Cpu {
         }
     }
 
+    fn accumulator_rotate_and_shift_operation_for_dispatcher(&mut self, opcode: u8) {
+        match opcode {
+            0x07 => {
+                rotate_and_shift::rlca(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 4;
+            }
+            0x17 => {
+                rotate_and_shift::rla(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 4;
+            }
+            0x0F => {
+                rotate_and_shift::rrca(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 4;
+            }
+            0x1F => {
+                rotate_and_shift::rra(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 4;
+            }
+            _ => panic!("acc rotate and shift opcode [{}] not supported!", opcode),
+        }
+    }
+
     fn rotate_and_shift_operation_dispatcher(&mut self, opcode: u8) {
         match opcode {
             _ => panic!("rotate and shift opcode [{}] not supported!", opcode),
@@ -951,6 +977,11 @@ impl Cpu {
             self.arithmetic_logic_instruction_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &load::LOAD_OPCODES) {
             self.load_instruction_dispatcher(opcode);
+        } else if instructions::is_supported(
+            opcode,
+            &rotate_and_shift::ACC_ROTATE_SHIFT_OPERATION_OPCODES,
+        ) {
+            self.accumulator_rotate_and_shift_operation_for_dispatcher(opcode);
         } else {
             panic!("Instruction [{}] not supported!", opcode);
         }
