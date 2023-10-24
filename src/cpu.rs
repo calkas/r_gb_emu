@@ -1,11 +1,7 @@
 use super::cpu_data::Registers;
 use super::iommu::IOMMU;
 use crate::{
-    instructions::{
-        self, arithmetic_logic, load,
-        rotate_and_shift::{self, ACC_ROTATE_SHIFT_OPERATION_OPCODES},
-        single_bit_operation,
-    },
+    instructions::{self, arithmetic_logic, load, rotate_and_shift, single_bit_operation},
     iommu::{STACK_SIZE, WRAM_SIZE},
 };
 /// # DMG-CPU
@@ -38,7 +34,7 @@ impl Cpu {
         let opcode = self.fetch_byte();
         if self.is_prefix_instruction(opcode) {
             let opcode = self.fetch_byte();
-            self.execute_prefix_instruction(opcode);
+            self.execute_cbprefixed_instruction(opcode);
         } else {
             self.execute(opcode);
         }
@@ -717,9 +713,303 @@ impl Cpu {
             _ => panic!("acc rotate and shift opcode [{}] not supported!", opcode),
         }
     }
-
     fn rotate_and_shift_operation_dispatcher(&mut self, opcode: u8) {
         match opcode {
+            //RLC
+            0x00 => {
+                rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x01 => {
+                rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x02 => {
+                rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x03 => {
+                rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x04 => {
+                rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x05 => {
+                rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x06 => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::rlc(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x07 => {
+                rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
+
+            //RRC
+            0x08 => {
+                rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x09 => {
+                rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x0A => {
+                rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x0B => {
+                rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x0C => {
+                rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x0D => {
+                rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x0E => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::rrc(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x0F => {
+                rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
+
+            // RL
+            0x11 => {
+                rotate_and_shift::rl(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x12 => {
+                rotate_and_shift::rl(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x13 => {
+                rotate_and_shift::rl(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x14 => {
+                rotate_and_shift::rl(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x10 => {
+                rotate_and_shift::rl(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x15 => {
+                rotate_and_shift::rl(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x16 => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::rl(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x17 => {
+                rotate_and_shift::rl(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
+
+            //RR
+            0x18 => {
+                rotate_and_shift::rr(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x19 => {
+                rotate_and_shift::rr(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x1A => {
+                rotate_and_shift::rr(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x1B => {
+                rotate_and_shift::rr(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x1C => {
+                rotate_and_shift::rr(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x1D => {
+                rotate_and_shift::rr(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x1E => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::rr(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x1F => {
+                rotate_and_shift::rr(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
+
+            //SLA
+            0x20 => {
+                rotate_and_shift::sla(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x21 => {
+                rotate_and_shift::sla(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x22 => {
+                rotate_and_shift::sla(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x23 => {
+                rotate_and_shift::sla(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x24 => {
+                rotate_and_shift::sla(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x25 => {
+                rotate_and_shift::sla(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x26 => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::sla(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x27 => {
+                rotate_and_shift::sla(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
+
+            //SRA
+            0x28 => {
+                rotate_and_shift::sra(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x29 => {
+                rotate_and_shift::sra(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x2A => {
+                rotate_and_shift::sra(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x2B => {
+                rotate_and_shift::sra(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x2C => {
+                rotate_and_shift::sra(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x2D => {
+                rotate_and_shift::sra(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x2E => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::sra(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x2F => {
+                rotate_and_shift::sra(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
+
+            //Swap
+            0x30 => {
+                rotate_and_shift::swap(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x31 => {
+                rotate_and_shift::swap(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x32 => {
+                rotate_and_shift::swap(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x33 => {
+                rotate_and_shift::swap(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x34 => {
+                rotate_and_shift::swap(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x35 => {
+                rotate_and_shift::swap(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x36 => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::swap(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x37 => {
+                rotate_and_shift::swap(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
+
+            //SRL
+            0x38 => {
+                rotate_and_shift::srl(&mut self.register.flag, &mut self.register.b);
+                self.cycle += 8;
+            }
+            0x39 => {
+                rotate_and_shift::srl(&mut self.register.flag, &mut self.register.c);
+                self.cycle += 8;
+            }
+            0x3A => {
+                rotate_and_shift::srl(&mut self.register.flag, &mut self.register.d);
+                self.cycle += 8;
+            }
+            0x3B => {
+                rotate_and_shift::srl(&mut self.register.flag, &mut self.register.e);
+                self.cycle += 8;
+            }
+            0x3C => {
+                rotate_and_shift::srl(&mut self.register.flag, &mut self.register.h);
+                self.cycle += 8;
+            }
+            0x3D => {
+                rotate_and_shift::srl(&mut self.register.flag, &mut self.register.l);
+                self.cycle += 8;
+            }
+            0x3E => {
+                let address = self.register.get_hl();
+                let mut value = self.iommu.read_byte(address);
+                rotate_and_shift::srl(&mut self.register.flag, &mut value);
+                self.iommu.write_byte(address, value);
+                self.cycle += 16;
+            }
+            0x3F => {
+                rotate_and_shift::srl(&mut self.register.flag, &mut self.register.a);
+                self.cycle += 8;
+            }
             _ => panic!("rotate and shift opcode [{}] not supported!", opcode),
         }
     }
@@ -964,11 +1254,16 @@ impl Cpu {
         }
     }
 
-    fn execute_prefix_instruction(&mut self, opcode: u8) {
+    fn execute_cbprefixed_instruction(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES) {
             self.single_bit_operation_dispatcher(opcode);
+        } else if instructions::is_supported(
+            opcode,
+            &rotate_and_shift::ROTATE_SHIFT_OPERATION_OPCODES,
+        ) {
+            self.rotate_and_shift_operation_dispatcher(opcode);
         } else {
-            panic!("Prefix Instruction [{}] not supported!", opcode);
+            panic!("CBPrefixed Instruction [{}] not supported!", opcode);
         }
     }
 
