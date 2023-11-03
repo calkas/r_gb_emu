@@ -132,8 +132,7 @@ pub fn srl(flag: &mut FlagsRegister, register_or_value: &mut u8) {
     flag.c = lsb_bit == 1;
 }
 #[cfg(test)]
-mod ut_test {
-
+mod ut {
     use super::*;
     use crate::cpu_data::Registers;
 

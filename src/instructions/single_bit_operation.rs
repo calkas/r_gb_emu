@@ -38,7 +38,7 @@ pub fn res(register_or_value: &mut u8, bit_number: u8) {
 }
 
 #[cfg(test)]
-mod single_bit_operation_ut {
+mod ut {
     use super::*;
     use crate::cpu_data::Registers;
 

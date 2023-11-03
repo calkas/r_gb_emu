@@ -312,8 +312,7 @@ pub fn ld_hl(flag: &mut FlagsRegister, reg_h: &mut u8, reg_l: &mut u8, sp_reg: u
 }
 
 #[cfg(test)]
-mod arithmetic_logic_ut {
-
+mod ut {
     use super::*;
     use crate::cpu_data::Registers;
 

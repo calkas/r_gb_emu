@@ -61,10 +61,10 @@ pub fn pop(stack: &mut IOMMU, reg_sp: &mut u16) -> u16 {
 }
 
 #[cfg(test)]
-mod load_ut {
+mod ut {
     use super::*;
     use crate::cpu_data::Registers;
-    use crate::iommu::IOMMU;
+
     #[test]
     fn ld_test() {
         let mut register = Registers::new();
