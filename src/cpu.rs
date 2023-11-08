@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use super::cpu_data::Registers;
 use super::iommu::IOMMU;
 use crate::{
-    instructions::{self, arithmetic_logic, load, rotate_and_shift, single_bit_operation},
+    instructions::{self, arithmetic_logic, jump, load, rotate_and_shift, single_bit_operation},
     iommu::{STACK_SIZE, WRAM_SIZE},
 };
 /// # DMG-CPU
@@ -1253,6 +1255,136 @@ impl Cpu {
             _ => panic!("single bit opcode [{}] not supported!", opcode),
         }
     }
+    fn jump_instruction_dispatcher(&mut self, opcode: u8) {
+        match opcode {
+            //JR
+            0x18 | 0x20 | 0x28 | 0x30 | 0x38 => {
+                let mut conditional_relative_jump: HashMap<u8, bool> = HashMap::new();
+                conditional_relative_jump.insert(0x18, true); //Always jump
+                conditional_relative_jump.insert(0x20, !self.register.flag.z); //JR NZ
+                conditional_relative_jump.insert(0x28, self.register.flag.z); //JR Z
+                conditional_relative_jump.insert(0x30, !self.register.flag.c); //JR NC
+                conditional_relative_jump.insert(0x38, self.register.flag.c); //JR C
+
+                if *conditional_relative_jump.get(&opcode).unwrap() {
+                    let offset = self.fetch_byte() as i8;
+                    jump::relative_jump(&mut self.register.pc, offset);
+                    self.cycle += 12;
+                } else {
+                    self.register.pc += 1;
+                    self.cycle += 8;
+                }
+            }
+            //JP
+            0xC2 | 0xC3 | 0xCA | 0xD2 | 0xDA => {
+                let mut conditional_jump: HashMap<u8, bool> = HashMap::new();
+                conditional_jump.insert(0xC2, !self.register.flag.z); //JP NZ
+                conditional_jump.insert(0xC3, true); //Always jump
+                conditional_jump.insert(0xCA, self.register.flag.z); //JP Z
+                conditional_jump.insert(0xD2, !self.register.flag.c); //JP NC
+                conditional_jump.insert(0xDA, self.register.flag.c); //JP C
+
+                if *conditional_jump.get(&opcode).unwrap() {
+                    let address = self.fetch_word();
+                    jump::jump_to(&mut self.register.pc, address);
+                    self.cycle += 16;
+                } else {
+                    self.register.pc += 2;
+                    self.cycle += 12;
+                }
+            }
+            //JP HL
+            0xE9 => {
+                let address = self.register.get_hl();
+                jump::jump_to(&mut self.register.pc, address);
+                self.cycle += 4;
+            }
+            // CALL
+            0xC4 | 0xCC | 0xCD | 0xD4 | 0xDC => {
+                let mut conditional_call: HashMap<u8, bool> = HashMap::new();
+                conditional_call.insert(0xC4, !self.register.flag.z); //CALL NZ
+                conditional_call.insert(0xCC, self.register.flag.z); //CALL Z
+                conditional_call.insert(0xCD, true); //Always call
+                conditional_call.insert(0xD4, !self.register.flag.c); //CALL NC
+                conditional_call.insert(0xDC, self.register.flag.c); //CALL C
+
+                if *conditional_call.get(&opcode).unwrap() {
+                    let address = self.fetch_word();
+                    jump::call(
+                        &mut self.register.pc,
+                        address,
+                        &mut self.iommu,
+                        &mut self.register.sp,
+                    );
+                    self.cycle += 24;
+                } else {
+                    self.register.pc += 2;
+                    self.cycle += 12;
+                }
+            }
+
+            // RET
+            0xC0 | 0xC8 | 0xC9 | 0xD0 | 0xD8 => {
+                let mut conditional_ret: HashMap<u8, bool> = HashMap::new();
+                conditional_ret.insert(0xC0, !self.register.flag.z); //RET NZ
+                conditional_ret.insert(0xC8, self.register.flag.z); //RET Z
+                conditional_ret.insert(0xC9, true); //Always RET
+                conditional_ret.insert(0xD0, !self.register.flag.c); //RET NC
+                conditional_ret.insert(0xD8, self.register.flag.c); //RET C
+
+                if *conditional_ret.get(&opcode).unwrap() {
+                    jump::ret(
+                        &mut self.register.pc,
+                        &mut self.iommu,
+                        &mut self.register.sp,
+                    );
+                    if opcode == 0xC9 {
+                        self.cycle += 16;
+                    } else {
+                        self.cycle += 20;
+                    }
+                } else {
+                    self.cycle += 8;
+                }
+            }
+
+            //RETI
+            0xD9 => {
+                jump::ret(
+                    &mut self.register.pc,
+                    &mut self.iommu,
+                    &mut self.register.sp,
+                );
+                // Turn on interrupts
+                self.cycle += 16;
+            }
+
+            //RST
+            0xC7 | 0xCF | 0xD7 | 0xDF | 0xE7 | 0xEF | 0xF7 | 0xFF => {
+                let mut reset_map: HashMap<u8, usize> = HashMap::new();
+                reset_map.insert(0xC7, 0);
+                reset_map.insert(0xCF, 1);
+                reset_map.insert(0xD7, 2);
+                reset_map.insert(0xDF, 3);
+                reset_map.insert(0xE7, 4);
+                reset_map.insert(0xEF, 5);
+                reset_map.insert(0xF7, 6);
+                reset_map.insert(0xFF, 7);
+
+                let reset_index = *reset_map.get(&opcode).unwrap();
+                jump::rst(
+                    reset_index,
+                    &mut self.register.pc,
+                    &mut self.iommu,
+                    &mut self.register.sp,
+                );
+
+                self.cycle += 16;
+            }
+
+            _ => panic!("Jump opcode [{}] not supported!", opcode),
+        }
+    }
 
     fn execute_cbprefixed_instruction(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES) {
@@ -1277,6 +1409,8 @@ impl Cpu {
             &rotate_and_shift::ACC_ROTATE_SHIFT_OPERATION_OPCODES,
         ) {
             self.accumulator_rotate_and_shift_operation_for_dispatcher(opcode);
+        } else if instructions::is_supported(opcode, &jump::JUMP_OPCODES) {
+            self.jump_instruction_dispatcher(opcode);
         } else {
             panic!("Instruction [{}] not supported!", opcode);
         }
