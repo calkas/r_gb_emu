@@ -1,5 +1,7 @@
 use crate::cpu_data::{ControlFlags, FlagsRegister};
 
+pub static CPU_CONTROL_OPCODES: [u8; 7] = [0x00, 0x10, 0x37, 0x3F, 0x76, 0xF3, 0xFB];
+
 /// # ccf
 /// Complement carry flag. If C flag is set, then reset it. If C flag is reset, then set it.
 pub fn ccf(flag: &mut FlagsRegister) {

@@ -2,7 +2,9 @@ use super::cpu_data::ControlFlags;
 use super::cpu_data::Registers;
 use super::iommu::IOMMU;
 use crate::{
-    instructions::{self, arithmetic_logic, jump, load, rotate_and_shift, single_bit_operation},
+    instructions::{
+        self, arithmetic_logic, cpu_control, jump, load, rotate_and_shift, single_bit_operation,
+    },
     iommu::{STACK_SIZE, WRAM_SIZE},
 };
 use std::collections::HashMap;
@@ -1389,6 +1391,40 @@ impl Cpu {
         }
     }
 
+    fn cpu_control_instruction_dispatcher(&mut self, opcode: u8) {
+        match opcode {
+            0x00 => {
+                //NOP
+                self.cycle += 4;
+            }
+            0x10 => {
+                //STOP
+                self.cycle += 4;
+            }
+            0x37 => {
+                cpu_control::scf(&mut self.register.flag);
+                self.cycle += 4;
+            }
+            0x3F => {
+                cpu_control::ccf(&mut self.register.flag);
+                self.cycle += 4;
+            }
+            0x76 => {
+                cpu_control::halt(&mut self.control);
+                self.cycle += 4;
+            }
+            0xF3 => {
+                cpu_control::di(&mut self.control);
+                self.cycle += 4;
+            }
+            0xFB => {
+                cpu_control::ei(&mut self.control);
+                self.cycle += 4;
+            }
+            _ => panic!("CPU control opcode [{}] not supported!", opcode),
+        }
+    }
+
     fn execute_cbprefixed_instruction(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES) {
             self.single_bit_operation_dispatcher(opcode);
@@ -1414,6 +1450,8 @@ impl Cpu {
             self.accumulator_rotate_and_shift_operation_for_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &jump::JUMP_OPCODES) {
             self.jump_instruction_dispatcher(opcode);
+        } else if instructions::is_supported(opcode, &cpu_control::CPU_CONTROL_OPCODES) {
+            self.cpu_control_instruction_dispatcher(opcode);
         } else {
             panic!("Instruction [{}] not supported!", opcode);
         }
