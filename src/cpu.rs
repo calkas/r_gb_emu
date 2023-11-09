@@ -1,16 +1,17 @@
-use std::collections::HashMap;
-
+use super::cpu_data::ControlFlags;
 use super::cpu_data::Registers;
 use super::iommu::IOMMU;
 use crate::{
     instructions::{self, arithmetic_logic, jump, load, rotate_and_shift, single_bit_operation},
     iommu::{STACK_SIZE, WRAM_SIZE},
 };
+use std::collections::HashMap;
 /// # DMG-CPU
 /// 8-bit 8080-like Sharp CPU
 pub struct Cpu {
     pub register: Registers,
     pub cycle: u32,
+    pub control: ControlFlags,
     pub iommu: IOMMU,
 }
 impl Cpu {
@@ -18,6 +19,7 @@ impl Cpu {
         Cpu {
             register: Registers::new(),
             cycle: 0,
+            control: ControlFlags::new(),
             iommu: IOMMU::new(),
         }
     }
@@ -1355,7 +1357,8 @@ impl Cpu {
                     &mut self.iommu,
                     &mut self.register.sp,
                 );
-                // Turn on interrupts
+                // return and enable interrupts (IME=1)
+                self.control.ime = true;
                 self.cycle += 16;
             }
 
