@@ -2,6 +2,7 @@ mod cpu;
 mod cpu_data;
 mod instructions;
 mod iommu;
+mod peripheral;
 use cpu::Cpu;
 
 fn main() {

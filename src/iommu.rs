@@ -1,3 +1,5 @@
+use crate::peripheral::{interrupt_controller::InterruptController, HardwareAccessible};
+
 pub const WRAM_SIZE: usize = 0xFFFF;
 pub const STACK_SIZE: usize = 0x7F; //FF80 - FFFE
 
@@ -6,33 +8,35 @@ pub const STACK_SIZE: usize = 0x7F; //FF80 - FFFE
 /// - Video RAM 8 KiB
 pub struct IOMMU {
     wram: [u8; WRAM_SIZE], // For now all 64kB is available
+    isr_controller: InterruptController,
 }
 
 impl IOMMU {
     pub fn new() -> Self {
         IOMMU {
             wram: [0xFF; WRAM_SIZE],
-        }
-    }
-
-    fn read_byte_from_device(&self, address: usize) -> u8 {
-        match address {
-            _ => self.wram[address],
-        }
-    }
-
-    fn write_byte_to_device(&mut self, address: usize, data: u8) {
-        match address {
-            _ => self.wram[address] = data,
+            isr_controller: InterruptController::new(),
         }
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
-        self.read_byte_from_device(address as usize)
+        let address = address as usize;
+        match address {
+            0xFF0F | 0xFFFF => self
+                .isr_controller
+                .read_byte_from_hardware_register(address),
+            _ => self.wram[address],
+        }
     }
 
-    pub fn write_byte(&mut self, address: u16, value: u8) {
-        self.write_byte_to_device(address as usize, value);
+    pub fn write_byte(&mut self, address: u16, data: u8) {
+        let address = address as usize;
+        match address {
+            0xFF0F | 0xFFFF => self
+                .isr_controller
+                .write_byte_to_hardware_register(address, data),
+            _ => self.wram[address] = data,
+        }
     }
 
     pub fn read_word(&mut self, address: u16) -> u16 {
