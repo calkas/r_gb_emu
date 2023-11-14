@@ -21,7 +21,7 @@ impl Cpu {
         Cpu {
             register: Registers::new(),
             cycle: 0,
-            control: ControlFlags::new(),
+            control: ControlFlags::default(),
             iommu: IOMMU::new(),
         }
     }

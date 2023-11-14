@@ -1,34 +1,14 @@
+#[derive(Default)]
 pub struct ControlFlags {
     pub ime: bool,
     pub halted: bool,
 }
-
-impl ControlFlags {
-    pub fn new() -> Self {
-        ControlFlags {
-            ime: true,
-            halted: false,
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct FlagsRegister {
     pub z: bool,
     pub n: bool,
     pub h: bool,
     pub c: bool,
-}
-
-impl FlagsRegister {
-    pub fn new() -> Self {
-        FlagsRegister {
-            z: false,
-            n: false,
-            h: false,
-            c: false,
-        }
-    }
 }
 
 impl std::convert::From<FlagsRegister> for u8 {
@@ -83,7 +63,7 @@ impl Registers {
     pub fn new() -> Self {
         Registers {
             a: 0,
-            flag: FlagsRegister::new(),
+            flag: FlagsRegister::default(),
             b: 0,
             c: 0,
             d: 0,
