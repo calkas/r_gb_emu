@@ -76,7 +76,7 @@ mod ut {
 
     #[test]
     fn control_flag_test() {
-        let mut cpu_control = ControlFlags::new();
+        let mut cpu_control = ControlFlags::default();
 
         di(&mut cpu_control);
         assert!(cpu_control.ime == false);
