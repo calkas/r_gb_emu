@@ -20,22 +20,20 @@ impl IOMMU {
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
-        let address = address as usize;
         match address {
             0xFF0F | 0xFFFF => self
                 .isr_controller
                 .read_byte_from_hardware_register(address),
-            _ => self.wram[address],
+            _ => self.wram[address as usize],
         }
     }
 
     pub fn write_byte(&mut self, address: u16, data: u8) {
-        let address = address as usize;
         match address {
             0xFF0F | 0xFFFF => self
                 .isr_controller
                 .write_byte_to_hardware_register(address, data),
-            _ => self.wram[address] = data,
+            _ => self.wram[address as usize] = data,
         }
     }
 

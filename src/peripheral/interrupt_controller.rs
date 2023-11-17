@@ -1,4 +1,5 @@
 use super::HardwareAccessible;
+use crate::constants::address;
 
 /// # InterruptRegister
 ///
@@ -72,20 +73,20 @@ impl InterruptController {
 }
 
 impl HardwareAccessible for InterruptController {
-    fn read_byte_from_hardware_register(&self, address: usize) -> u8 {
+    fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
         match address {
-            0xFF0F => InterruptRegister::into(self.intf),
-            0xFFFF => InterruptRegister::into(self.inte),
+            address::INTF_REGISTER => InterruptRegister::into(self.intf),
+            address::INTE_REGISTER => InterruptRegister::into(self.inte),
             _ => panic!(
                 "Read - This address [{}] is not for interrupt controller",
                 address
             ),
         }
     }
-    fn write_byte_to_hardware_register(&mut self, address: usize, data: u8) {
+    fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
         match address {
-            0xFF0F => self.intf = InterruptRegister::from(data),
-            0xFFFF => self.inte = InterruptRegister::from(data),
+            address::INTF_REGISTER => self.intf = InterruptRegister::from(data),
+            address::INTE_REGISTER => self.inte = InterruptRegister::from(data),
             _ => panic!(
                 "Write - This address [{}] is not for interrupt controller",
                 address
@@ -103,8 +104,11 @@ mod ut {
         let mut isr = InterruptController::new();
 
         //IF
-        isr.write_byte_to_hardware_register(0xFF0F, 0x19);
-        assert_eq!(0x19, isr.read_byte_from_hardware_register(0xFF0F));
+        isr.write_byte_to_hardware_register(address::INTF_REGISTER, 0x19);
+        assert_eq!(
+            0x19,
+            isr.read_byte_from_hardware_register(address::INTF_REGISTER)
+        );
         assert!(isr.intf.joypad == true);
         assert!(isr.intf.serial_link == true);
         assert!(isr.intf.timer == false);
@@ -115,9 +119,15 @@ mod ut {
         isr.inte.lcd = true;
         isr.inte.v_blank = true;
 
-        assert_eq!(0x03, isr.read_byte_from_hardware_register(0xFFFF));
-        isr.write_byte_to_hardware_register(0xFFFF, 0x1F);
-        assert_eq!(0x1F, isr.read_byte_from_hardware_register(0xFFFF));
+        assert_eq!(
+            0x03,
+            isr.read_byte_from_hardware_register(address::INTE_REGISTER)
+        );
+        isr.write_byte_to_hardware_register(address::INTE_REGISTER, 0x1F);
+        assert_eq!(
+            0x1F,
+            isr.read_byte_from_hardware_register(address::INTE_REGISTER)
+        );
         assert!(isr.inte.joypad == true);
         assert!(isr.inte.serial_link == true);
         assert!(isr.inte.timer == true);

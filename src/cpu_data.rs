@@ -1,7 +1,15 @@
-#[derive(Default)]
 pub struct ControlFlags {
     pub ime: bool,
     pub halted: bool,
+}
+
+impl ControlFlags {
+    pub fn new() -> Self {
+        ControlFlags {
+            ime: true,
+            halted: false,
+        }
+    }
 }
 #[derive(Clone, Copy, Default)]
 pub struct FlagsRegister {

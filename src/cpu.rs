@@ -1,6 +1,7 @@
-use super::cpu_data::ControlFlags;
-use super::cpu_data::Registers;
+use super::constants::{address, isr_adress};
+use super::cpu_data::{ControlFlags, Registers};
 use super::iommu::IOMMU;
+use crate::peripheral::interrupt_controller::InterruptRegister;
 use crate::{
     instructions::{
         self, arithmetic_logic, cpu_control, jump, load, rotate_and_shift, single_bit_operation,
@@ -21,7 +22,7 @@ impl Cpu {
         Cpu {
             register: Registers::new(),
             cycle: 0,
-            control: ControlFlags::default(),
+            control: ControlFlags::new(),
             iommu: IOMMU::new(),
         }
     }
@@ -37,6 +38,8 @@ impl Cpu {
     }
 
     pub fn process(&mut self) {
+        //todo HALT handling support
+        self.interrupt_handling();
         let opcode = self.fetch_byte();
         if self.is_prefix_instruction(opcode) {
             let opcode = self.fetch_byte();
@@ -62,6 +65,43 @@ impl Cpu {
         let low_byte = self.fetch_byte();
         let high_byte = self.fetch_byte();
         (high_byte as u16).rotate_left(8) | (low_byte as u16)
+    }
+
+    fn interrupt_handling(&mut self) {
+        if !self.control.ime {
+            return;
+        }
+
+        let intf = self.iommu.read_byte(address::INTF_REGISTER);
+        let inte = self.iommu.read_byte(address::INTE_REGISTER);
+
+        if inte == intf {
+            self.control.ime = false;
+            load::push(&mut self.iommu, &mut self.register.sp, self.register.pc);
+            let mut isr_reg = InterruptRegister::from(intf);
+            if isr_reg.v_blank {
+                self.register.pc = isr_adress::V_BLANK;
+                isr_reg.v_blank = false;
+            } else if isr_reg.lcd {
+                self.register.pc = isr_adress::LCD_STATUS;
+                isr_reg.lcd = false;
+            } else if isr_reg.timer {
+                self.register.pc = isr_adress::TIMER;
+                isr_reg.timer = false;
+            } else if isr_reg.serial_link {
+                self.register.pc = isr_adress::SERIAL_LINK;
+                isr_reg.serial_link = false;
+            } else if isr_reg.joypad {
+                self.register.pc = isr_adress::JOYPAD;
+                isr_reg.joypad = false;
+            } else { //Error
+            }
+            let mask: u8 = InterruptRegister::into(isr_reg);
+            let reg_val_for_reset_isr = mask & intf;
+            self.iommu
+                .write_byte(address::INTF_REGISTER, reg_val_for_reset_isr);
+            self.cycle += 16;
+        }
     }
 
     fn arithmetic_logic_instruction_dispatcher(&mut self, opcode: u8) {

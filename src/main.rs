@@ -1,3 +1,4 @@
+mod constants;
 mod cpu;
 mod cpu_data;
 mod instructions;
