@@ -166,7 +166,7 @@ impl Registers {
     }
 
     pub fn get_reg16_value_from_opcode_array(&self, opcode_array: &[u8], opcode: u8) -> u16 {
-        assert!(opcode_array.len() == 4);
+        assert!(opcode_array.len() < 5);
         let mut reg_id: usize = 0xFF;
         for (id, element) in opcode_array.iter().enumerate() {
             if opcode == *element {
