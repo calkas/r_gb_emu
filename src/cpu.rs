@@ -47,7 +47,6 @@ impl Cpu {
         } else {
             self.execute(opcode);
         }
-
         self.dump_regs();
     }
 
@@ -75,7 +74,7 @@ impl Cpu {
         let intf = self.iommu.read_byte(address::INTF_REGISTER);
         let inte = self.iommu.read_byte(address::INTE_REGISTER);
 
-        if inte == intf {
+        if inte & intf != 0 {
             self.control.ime = false;
             load::push(&mut self.iommu, &mut self.register.sp, self.register.pc);
             let mut isr_reg = InterruptRegister::from(intf);
@@ -453,7 +452,7 @@ impl Cpu {
                 );
                 self.cycle += 12;
             }
-            _ => panic!("arithmetic_logic opcode [{}] not supported!", opcode),
+            _ => panic!("arithmetic_logic opcode [{:#02x?}] not supported!", opcode),
         }
     }
 
@@ -672,6 +671,14 @@ impl Cpu {
                 load::ld(&mut self.register.a, value);
                 self.cycle += 8;
             }
+            // write to io-port n (memory FF00+n)
+            0xE0 => {
+                let address = self.fetch_byte();
+                let port_address = load::calculate_address_for_io_port(address);
+                self.iommu.write_byte(port_address, self.register.a);
+                self.cycle += 12;
+            }
+
             //write to io-port C
             0xE2 => {
                 let port_address = load::calculate_address_for_io_port(self.register.c);
@@ -682,6 +689,13 @@ impl Cpu {
                 let address = self.fetch_word();
                 self.iommu.write_byte(address, self.register.a);
                 self.cycle += 16;
+            }
+            //read from io-port n (memory FF00+n)
+            0xF0 => {
+                let address = self.fetch_byte();
+                let port_address = load::calculate_address_for_io_port(address);
+                self.register.a = self.iommu.read_byte(port_address);
+                self.cycle += 12;
             }
             // read from io-port C
             0xF2 => {
@@ -734,7 +748,7 @@ impl Cpu {
                 self.register.set_af(value);
                 self.cycle += 12;
             }
-            _ => panic!("load opcode [{}] not supported!", opcode),
+            _ => panic!("load opcode [{:#02x?}] not supported!", opcode),
         }
     }
 
@@ -756,7 +770,10 @@ impl Cpu {
                 rotate_and_shift::rra(&mut self.register.flag, &mut self.register.a);
                 self.cycle += 4;
             }
-            _ => panic!("acc rotate and shift opcode [{}] not supported!", opcode),
+            _ => panic!(
+                "acc rotate and shift opcode [{:#02x?}] not supported!",
+                opcode
+            ),
         }
     }
     fn rotate_and_shift_operation_dispatcher(&mut self, opcode: u8) {
@@ -1056,7 +1073,7 @@ impl Cpu {
                 rotate_and_shift::srl(&mut self.register.flag, &mut self.register.a);
                 self.cycle += 8;
             }
-            _ => panic!("rotate and shift opcode [{}] not supported!", opcode),
+            _ => panic!("rotate and shift opcode [{:#02x?}] not supported!", opcode),
         }
     }
     fn single_bit_operation_dispatcher(&mut self, opcode: u8) {
@@ -1296,7 +1313,7 @@ impl Cpu {
                 self.cycle += 16;
             }
 
-            _ => panic!("single bit opcode [{}] not supported!", opcode),
+            _ => panic!("single bit opcode [{:#02x?}] not supported!", opcode),
         }
     }
     fn jump_instruction_dispatcher(&mut self, opcode: u8) {
@@ -1427,7 +1444,7 @@ impl Cpu {
                 self.cycle += 16;
             }
 
-            _ => panic!("Jump opcode [{}] not supported!", opcode),
+            _ => panic!("Jump opcode [{:#02x?}] not supported!", opcode),
         }
     }
 
@@ -1461,7 +1478,7 @@ impl Cpu {
                 cpu_control::ei(&mut self.control);
                 self.cycle += 4;
             }
-            _ => panic!("CPU control opcode [{}] not supported!", opcode),
+            _ => panic!("CPU control opcode [{:#02x?}] not supported!", opcode),
         }
     }
 
@@ -1474,7 +1491,8 @@ impl Cpu {
         ) {
             self.rotate_and_shift_operation_dispatcher(opcode);
         } else {
-            panic!("CBPrefixed Instruction [{}] not supported!", opcode);
+            self.dump_regs();
+            panic!("CBPrefixed Instruction [{:#02x?}] not supported!", opcode);
         }
     }
 
@@ -1493,12 +1511,13 @@ impl Cpu {
         } else if instructions::is_supported(opcode, &cpu_control::CPU_CONTROL_OPCODES) {
             self.cpu_control_instruction_dispatcher(opcode);
         } else {
-            panic!("Instruction [{}] not supported!", opcode);
+            self.dump_regs();
+            panic!("Instruction [{:#02x?}] not supported!", opcode);
         }
     }
     fn dump_regs(&self) {
         println!(
-            "A = {}\nF.z = {}, F.n = {}, F.h = {}, F.c = {}\nB = {}\nC = {}\nD = {}\nE = {}\nH = {}\nL = {}",
+            "A = {}\nF.z = {}, F.n = {}, F.h = {}, F.c = {}\nB = {}\nC = {}\nD = {}\nE = {}\nH = {}\nL = {}\nPC = {}",
             self.register.a,
             self.register.flag.z as u8,
             self.register.flag.n as u8,
@@ -1509,7 +1528,8 @@ impl Cpu {
             self.register.d,
             self.register.e,
             self.register.h,
-            self.register.l
+            self.register.l,
+            self.register.pc
         );
     }
 }
