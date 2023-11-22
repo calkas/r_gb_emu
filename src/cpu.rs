@@ -1,13 +1,10 @@
 use super::constants::gb_memory_map::{address, isr_adress};
 use super::cpu_data::{ControlFlags, Registers};
 use super::iommu::IOMMU;
-use crate::peripheral::interrupt_controller::InterruptRegister;
-use crate::{
-    instructions::{
-        self, arithmetic_logic, cpu_control, jump, load, rotate_and_shift, single_bit_operation,
-    },
-    iommu::{STACK_SIZE, WRAM_SIZE},
+use crate::instructions::{
+    self, arithmetic_logic, cpu_control, jump, load, rotate_and_shift, single_bit_operation,
 };
+use crate::peripheral::interrupt_controller::InterruptRegister;
 use std::collections::HashMap;
 /// # DMG-CPU
 /// 8-bit 8080-like Sharp CPU
@@ -29,12 +26,14 @@ impl Cpu {
 
     pub fn load_program(&mut self, program: &[u8]) {
         //Temporary solution
-        assert!(program.len() < WRAM_SIZE - STACK_SIZE);
+        assert!(program.len() <= 0x10000);
         for (index, byte) in program.iter().enumerate() {
             self.iommu.write_byte(index as u16, *byte);
         }
+
         //Set stack pointer
-        self.register.sp = 0xFFFE;
+        self.register.sp = *address::HIGH_RAM.end();
+        self.register.pc = 0x100;
     }
 
     pub fn process(&mut self) {

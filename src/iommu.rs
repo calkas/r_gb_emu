@@ -1,40 +1,50 @@
 use super::constants::gb_memory_map::address;
+use super::constants::gb_memory_map::memory;
 use crate::peripheral::{interrupt_controller::InterruptController, HardwareAccessible};
-
-pub const WRAM_SIZE: usize = 0xFFFF + 0x100;
-pub const STACK_SIZE: usize = 0x7F; //FF80 - FFFE
-
 /// # I/O Memory Management
-/// - Working RAM 8 KiB
-/// - Video RAM 8 KiB
+/// Input–output memory management unit
 pub struct IOMMU {
-    wram: [u8; WRAM_SIZE], // For now all 64kB is available
+    stack: [u8; memory::HIGH_RAM_SIZE],
+    temp_memory: [u8; 0x10000], // Temporary solution For now all 64kB is available
     isr_controller: InterruptController,
 }
 
 impl IOMMU {
     pub fn new() -> Self {
         IOMMU {
-            wram: [0xFF; WRAM_SIZE],
+            stack: [memory::INIT_VALUE; memory::HIGH_RAM_SIZE],
+            temp_memory: [memory::INIT_VALUE; 0x10000],
             isr_controller: InterruptController::new(),
         }
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
-            0xFF0F | 0xFFFF => self
+            stack_adr if address::HIGH_RAM.contains(&stack_adr) => {
+                let converted_address = (address - address::HIGH_RAM.start()) as usize;
+                self.stack[converted_address]
+            }
+
+            address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
                 .read_byte_from_hardware_register(address),
-            _ => self.wram[address as usize],
+
+            _ => self.temp_memory[address as usize],
         }
     }
 
     pub fn write_byte(&mut self, address: u16, data: u8) {
         match address {
-            0xFF0F | 0xFFFF => self
+            stack_adr if address::HIGH_RAM.contains(&stack_adr) => {
+                let converted_address = (address - address::HIGH_RAM.start()) as usize;
+                self.stack[converted_address] = data;
+            }
+
+            address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
                 .write_byte_to_hardware_register(address, data),
-            _ => self.wram[address as usize] = data,
+
+            _ => self.temp_memory[address as usize] = data,
         }
     }
 
