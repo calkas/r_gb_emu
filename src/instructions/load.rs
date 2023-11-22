@@ -56,18 +56,12 @@ pub fn hld(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
 /// PUSH on stack
 pub fn push(stack: &mut IOMMU, reg_sp: &mut u16, value: u16) {
     *reg_sp = reg_sp.wrapping_sub(2);
-    if !address::HIGH_RAM.contains(reg_sp) {
-        panic!("PUSH operation: Stack overflow SP = {:#06x?}", *reg_sp);
-    }
     stack.write_word(*reg_sp, value)
 }
 
 /// # pop
 /// POP from stack
 pub fn pop(stack: &mut IOMMU, reg_sp: &mut u16) -> u16 {
-    if !address::HIGH_RAM.contains(reg_sp) {
-        panic!("POP operation: Stack overflow SP = {:#06x?}", *reg_sp);
-    }
     let value = stack.read_word(*reg_sp);
     *reg_sp = reg_sp.wrapping_add(2);
     value
