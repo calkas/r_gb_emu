@@ -38,8 +38,10 @@ impl Cpu {
 
     pub fn process(&mut self) {
         //todo HALT handling support
+        println!("---------------------");
         self.interrupt_handling();
         let opcode = self.fetch_byte();
+        println!("Processing Opcode = {:#02x?}", opcode);
         if self.is_prefix_instruction(opcode) {
             let opcode = self.fetch_byte();
             self.execute_cbprefixed_instruction(opcode);
@@ -47,6 +49,7 @@ impl Cpu {
             self.execute(opcode);
         }
         self.dump_regs();
+        println!("---------------------");
     }
 
     fn is_prefix_instruction(&self, opcode: u8) -> bool {
@@ -1483,11 +1486,13 @@ impl Cpu {
 
     fn execute_cbprefixed_instruction(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES) {
+            println!("single_bit_operation cb instruction");
             self.single_bit_operation_dispatcher(opcode);
         } else if instructions::is_supported(
             opcode,
             &rotate_and_shift::ROTATE_SHIFT_OPERATION_OPCODES,
         ) {
+            println!("rotate_and_shift_operation cb instruction");
             self.rotate_and_shift_operation_dispatcher(opcode);
         } else {
             self.dump_regs();
@@ -1497,17 +1502,22 @@ impl Cpu {
 
     fn execute(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &arithmetic_logic::ARITHMETIC_LOGIC_OPCODES) {
+            println!("arithmetic_logic_instruction");
             self.arithmetic_logic_instruction_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &load::LOAD_OPCODES) {
+            println!("load_instruction");
             self.load_instruction_dispatcher(opcode);
         } else if instructions::is_supported(
             opcode,
             &rotate_and_shift::ACC_ROTATE_SHIFT_OPERATION_OPCODES,
         ) {
+            println!("accumulator_rotate_and_shift_operation");
             self.accumulator_rotate_and_shift_operation_for_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &jump::JUMP_OPCODES) {
+            println!("jump_instruction");
             self.jump_instruction_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &cpu_control::CPU_CONTROL_OPCODES) {
+            println!("cpu_control_instruction");
             self.cpu_control_instruction_dispatcher(opcode);
         } else {
             self.dump_regs();
@@ -1516,19 +1526,17 @@ impl Cpu {
     }
     fn dump_regs(&self) {
         println!(
-            "A = {}\nF.z = {}, F.n = {}, F.h = {}, F.c = {}\nB = {}\nC = {}\nD = {}\nE = {}\nH = {}\nL = {}\nPC = {}",
+            "A = {}\nFlags:\nZ = {}, N = {}, H = {}, C = {}\nBC = {}\nDE = {}\nHL = {}\nPC = {:#02x?}\nSP = {:#02x?}",
             self.register.a,
             self.register.flag.z as u8,
             self.register.flag.n as u8,
             self.register.flag.h as u8,
             self.register.flag.c as u8,
-            self.register.b,
-            self.register.c,
-            self.register.d,
-            self.register.e,
-            self.register.h,
-            self.register.l,
-            self.register.pc
+            self.register.get_bc(),
+            self.register.get_de(),
+            self.register.get_hl(),
+            self.register.pc,
+            self.register.sp
         );
     }
 }
