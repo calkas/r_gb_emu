@@ -1,6 +1,7 @@
+use super::constants::gb_memory_map::address;
 use crate::peripheral::{interrupt_controller::InterruptController, HardwareAccessible};
 
-pub const WRAM_SIZE: usize = 0xFFFF;
+pub const WRAM_SIZE: usize = 0xFFFF + 0x100;
 pub const STACK_SIZE: usize = 0x7F; //FF80 - FFFE
 
 /// # I/O Memory Management

@@ -1,5 +1,5 @@
 use super::HardwareAccessible;
-use crate::constants::address;
+use crate::constants::gb_memory_map::address;
 
 /// # InterruptRegister
 ///

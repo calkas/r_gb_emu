@@ -1,4 +1,4 @@
-use super::constants::{address, isr_adress};
+use super::constants::gb_memory_map::{address, isr_adress};
 use super::cpu_data::{ControlFlags, Registers};
 use super::iommu::IOMMU;
 use crate::peripheral::interrupt_controller::InterruptRegister;
