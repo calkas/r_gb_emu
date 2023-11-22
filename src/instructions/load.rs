@@ -1,3 +1,4 @@
+use crate::constants::gb_memory_map::address;
 use crate::iommu::IOMMU;
 
 pub static LOAD_OPCODES: [u8; 99] = [
@@ -31,39 +32,42 @@ pub fn calculate_address_for_io_port(val: u8) -> u16 {
 /// # hli
 /// Used to handle LDI instruction
 pub fn hli(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
-    let reg_hl_val = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
-    *reg_h = (((reg_hl_val + 1) & 0xFF00).rotate_right(8)) as u8;
-    *reg_l = ((reg_hl_val + 1) & 0x00FF) as u8;
-    reg_hl_val
-}
-/// # hld
-/// Used to handle LDD instruction
-pub fn hld(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
-    let reg_hl_val = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
-    let res: u16 = (reg_hl_val as i16 - 1) as u16;
+    let old_hl_val = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
+    let res = old_hl_val.wrapping_add(1);
 
     *reg_h = (res >> 8) as u8;
     *reg_l = (res & 0x00FF) as u8;
 
-    res
+    old_hl_val
+}
+/// # hld
+/// Used to handle LDD instruction
+pub fn hld(reg_h: &mut u8, reg_l: &mut u8) -> u16 {
+    let old_hl_val = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
+    let res = old_hl_val.wrapping_sub(1);
 
-    // let reg_hl_val = (*reg_h as u16).rotate_left(8) | (*reg_l as u16);
-    // println!("hld \n reg_hl_val = {}", reg_hl_val);
-    // *reg_h = (((reg_hl_val - 1) & 0xFF00).rotate_right(8)) as u8;
-    // *reg_l = ((reg_hl_val - 1) & 0x00FF) as u8;
-    // reg_hl_val
+    *reg_h = (res >> 8) as u8;
+    *reg_l = (res & 0x00FF) as u8;
+
+    old_hl_val
 }
 
 /// # push
 /// PUSH on stack
 pub fn push(stack: &mut IOMMU, reg_sp: &mut u16, value: u16) {
     *reg_sp = reg_sp.wrapping_sub(2);
+    if !address::HIGH_RAM.contains(reg_sp) {
+        panic!("PUSH operation: Stack overflow SP = {:#06x?}", *reg_sp);
+    }
     stack.write_word(*reg_sp, value)
 }
 
 /// # pop
 /// POP from stack
 pub fn pop(stack: &mut IOMMU, reg_sp: &mut u16) -> u16 {
+    if !address::HIGH_RAM.contains(reg_sp) {
+        panic!("POP operation: Stack overflow SP = {:#06x?}", *reg_sp);
+    }
     let value = stack.read_word(*reg_sp);
     *reg_sp = reg_sp.wrapping_add(2);
     value
@@ -108,12 +112,18 @@ mod ut {
         register.h = 0x30;
         register.l = 0x20;
 
-        let exp_ret_hl_val = (register.h as u16).rotate_left(8) | (register.l as u16);
-
         let ret_val = hli(&mut register.h, &mut register.l);
-        assert_eq!(exp_ret_hl_val, ret_val);
+        assert_eq!(0x3020, ret_val);
         assert_eq!(0x30, register.h);
         assert_eq!(0x21, register.l);
+
+        register.h = 0xFF;
+        register.l = 0xFF;
+
+        let ret_val = hli(&mut register.h, &mut register.l);
+        assert_eq!(0xFFFF, ret_val);
+        assert_eq!(0x0, register.h);
+        assert_eq!(0x0, register.l);
     }
     #[test]
     fn ldd_test() {
@@ -122,19 +132,25 @@ mod ut {
         register.h = 0x30;
         register.l = 0x20;
 
-        let exp_ret_hl_val = (register.h as u16).rotate_left(8) | (register.l as u16);
-
         let ret_val = hld(&mut register.h, &mut register.l);
-        assert_eq!(exp_ret_hl_val, ret_val);
+        assert_eq!(0x3020, ret_val);
         assert_eq!(0x30, register.h);
         assert_eq!(0x1F, register.l);
+
+        register.h = 0;
+        register.l = 0;
+
+        let ret_val = hld(&mut register.h, &mut register.l);
+        assert_eq!(0, ret_val);
+        assert_eq!(0xFF, register.h);
+        assert_eq!(0xFF, register.l);
     }
 
     #[test]
     fn stack_test() {
         let mut register = Registers::new();
         let mut iommu = IOMMU::new();
-        register.sp = 0xFFFE;
+        register.sp = *address::HIGH_RAM.end();
 
         let mut exp_sp_value = register.sp - 2;
 
