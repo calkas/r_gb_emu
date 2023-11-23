@@ -38,18 +38,18 @@ impl Cpu {
 
     pub fn process(&mut self) {
         //todo HALT handling support
-        println!("---------------------");
+        //println!("---------------------");
         self.interrupt_handling();
         let opcode = self.fetch_byte();
-        println!("Processing Opcode = {:#02x?}", opcode);
+        //println!("Processing Opcode = {:#02x?}", opcode);
         if self.is_prefix_instruction(opcode) {
             let opcode = self.fetch_byte();
             self.execute_cbprefixed_instruction(opcode);
         } else {
             self.execute(opcode);
         }
-        self.dump_regs();
-        println!("---------------------");
+        //self.dump_regs();
+        //println!("---------------------");
     }
 
     fn is_prefix_instruction(&self, opcode: u8) -> bool {
@@ -1486,13 +1486,11 @@ impl Cpu {
 
     fn execute_cbprefixed_instruction(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES) {
-            println!("single_bit_operation cb instruction");
             self.single_bit_operation_dispatcher(opcode);
         } else if instructions::is_supported(
             opcode,
             &rotate_and_shift::ROTATE_SHIFT_OPERATION_OPCODES,
         ) {
-            println!("rotate_and_shift_operation cb instruction");
             self.rotate_and_shift_operation_dispatcher(opcode);
         } else {
             self.dump_regs();
@@ -1502,22 +1500,17 @@ impl Cpu {
 
     fn execute(&mut self, opcode: u8) {
         if instructions::is_supported(opcode, &arithmetic_logic::ARITHMETIC_LOGIC_OPCODES) {
-            println!("arithmetic_logic_instruction");
             self.arithmetic_logic_instruction_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &load::LOAD_OPCODES) {
-            println!("load_instruction");
             self.load_instruction_dispatcher(opcode);
         } else if instructions::is_supported(
             opcode,
             &rotate_and_shift::ACC_ROTATE_SHIFT_OPERATION_OPCODES,
         ) {
-            println!("accumulator_rotate_and_shift_operation");
             self.accumulator_rotate_and_shift_operation_for_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &jump::JUMP_OPCODES) {
-            println!("jump_instruction");
             self.jump_instruction_dispatcher(opcode);
         } else if instructions::is_supported(opcode, &cpu_control::CPU_CONTROL_OPCODES) {
-            println!("cpu_control_instruction");
             self.cpu_control_instruction_dispatcher(opcode);
         } else {
             self.dump_regs();
@@ -1542,9 +1535,30 @@ impl Cpu {
 }
 
 #[cfg(test)]
-mod cpu_ut {
+mod ut_blargg_tests {
 
-    //use super::*;
+    use super::*;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use std::path::Path;
+
     #[test]
-    fn arithmetic_logic_opcode_check() {}
+    fn cpu_08_misc_instruction_behavior_test() {
+        let rom_path = Path::new("roms/08-misc instrs.gb");
+
+        let mut rom_file = match File::open(&rom_path) {
+            Err(why) => panic!("couldn't open {}: {}", rom_path.display(), why),
+            Ok(file) => file,
+        };
+
+        let mut program: Vec<u8> = Vec::new();
+        rom_file.read_to_end(&mut program).unwrap();
+
+        let mut cpu = Cpu::new();
+        cpu.load_program(&program);
+
+        for _ in 0..program.len() {
+            cpu.process();
+        }
+    }
 }
