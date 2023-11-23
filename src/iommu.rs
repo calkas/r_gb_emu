@@ -4,7 +4,7 @@ use crate::peripheral::{interrupt_controller::InterruptController, HardwareAcces
 /// # I/O Memory Management
 /// Input–output memory management unit
 pub struct IOMMU {
-    stack: [u8; memory::HIGH_RAM_SIZE],
+    hram: [u8; memory::HIGH_RAM_SIZE],
     temp_memory: [u8; 0x10000], // Temporary solution For now all 64kB is available
     isr_controller: InterruptController,
 }
@@ -12,7 +12,7 @@ pub struct IOMMU {
 impl IOMMU {
     pub fn new() -> Self {
         IOMMU {
-            stack: [memory::INIT_VALUE; memory::HIGH_RAM_SIZE],
+            hram: [memory::INIT_VALUE; memory::HIGH_RAM_SIZE],
             temp_memory: [memory::INIT_VALUE; 0x10000],
             isr_controller: InterruptController::new(),
         }
@@ -20,9 +20,9 @@ impl IOMMU {
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
-            stack_adr if address::HIGH_RAM.contains(&stack_adr) => {
+            hram_adr if address::HIGH_RAM.contains(&hram_adr) => {
                 let converted_address = (address - address::HIGH_RAM.start()) as usize;
-                self.stack[converted_address]
+                self.hram[converted_address]
             }
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
@@ -35,9 +35,9 @@ impl IOMMU {
 
     pub fn write_byte(&mut self, address: u16, data: u8) {
         match address {
-            stack_adr if address::HIGH_RAM.contains(&stack_adr) => {
+            hram_adr if address::HIGH_RAM.contains(&hram_adr) => {
                 let converted_address = (address - address::HIGH_RAM.start()) as usize;
-                self.stack[converted_address] = data;
+                self.hram[converted_address] = data;
             }
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
