@@ -1,4 +1,5 @@
 pub mod interrupt_controller;
+pub mod serial;
 
 /// # Hardware access
 /// - Cartridge space.

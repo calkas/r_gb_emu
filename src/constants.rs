@@ -43,6 +43,8 @@ pub mod gb_memory_map {
         pub const INTE_REGISTER: u16 = 0xFFFF;
 
         pub const INTF_REGISTER: u16 = 0xFF0F;
+        pub const SERIAL_DATA_REGISTER: u16 = 0xFF01;
+        pub const SERIAL_CONTROL_REGISTER: u16 = 0xFF02;
     }
 
     pub mod memory {
