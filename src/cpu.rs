@@ -8,19 +8,19 @@ use crate::peripheral::interrupt_controller::InterruptRegister;
 use std::collections::HashMap;
 /// # DMG-CPU
 /// 8-bit 8080-like Sharp CPU
-pub struct Cpu {
+pub struct Cpu<'a> {
     pub register: Registers,
     pub cycle: u32,
     pub control: ControlFlags,
-    pub iommu: IOMMU,
+    pub iommu: &'a mut IOMMU,
 }
-impl Cpu {
-    pub fn new() -> Self {
+impl<'a> Cpu<'a> {
+    pub fn new(iommu: &'a mut IOMMU) -> Self {
         Cpu {
             register: Registers::new(),
             cycle: 0,
             control: ControlFlags::new(),
-            iommu: IOMMU::new(),
+            iommu,
         }
     }
 
@@ -1553,8 +1553,9 @@ mod ut_blargg_tests {
 
         let mut program: Vec<u8> = Vec::new();
         rom_file.read_to_end(&mut program).unwrap();
+        let mut iommu = IOMMU::new();
 
-        let mut cpu = Cpu::new();
+        let mut cpu = Cpu::new(&mut iommu);
         cpu.load_program(&program);
 
         for _ in 0..program.len() {
