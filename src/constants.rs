@@ -48,7 +48,7 @@ pub mod gb_memory_map {
     }
 
     pub mod memory {
-        pub const INIT_VALUE: u8 = 0xFF;
+        pub const DEFAULT_INIT_VALUE: u8 = 0xFF;
         pub const CARTRIDGE_ROM_SIZE: usize = 0x8000;
         pub const HIGH_RAM_SIZE: usize = 0x7F;
     }

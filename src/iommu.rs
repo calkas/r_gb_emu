@@ -12,20 +12,46 @@ pub struct IOMMU {
 impl IOMMU {
     pub fn new() -> Self {
         IOMMU {
-            hram: [memory::INIT_VALUE; memory::HIGH_RAM_SIZE],
-            temp_memory: [memory::INIT_VALUE; 0x10000],
+            hram: [memory::DEFAULT_INIT_VALUE; memory::HIGH_RAM_SIZE],
+            temp_memory: [memory::DEFAULT_INIT_VALUE; 0x10000],
             isr_controller: InterruptController::new(),
+        }
+    }
+
+    pub fn load_value_from_io_register(&self, io_address: u16) -> u8 {
+        match io_address {
+            address::INTF_REGISTER => self
+                .isr_controller
+                .read_byte_from_hardware_register(io_address),
+            _ => memory::DEFAULT_INIT_VALUE,
+        }
+    }
+
+    pub fn store_value_to_io_register(&mut self, io_address: u16, io_data: u8) {
+        match io_address {
+            address::INTF_REGISTER => self
+                .isr_controller
+                .write_byte_to_hardware_register(io_address, io_data),
+            _ => {}
         }
     }
 
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
-            hram_adr if address::HIGH_RAM.contains(&hram_adr) => {
-                let converted_address = (address - address::HIGH_RAM.start()) as usize;
-                self.hram[converted_address]
+            not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {
+                memory::DEFAULT_INIT_VALUE
             }
 
-            address::INTF_REGISTER | address::INTE_REGISTER => self
+            io_address if address::HARDWARE_IO_REGISTERS.contains(&io_address) => {
+                self.load_value_from_io_register(io_address)
+            }
+
+            hram_address if address::HIGH_RAM.contains(&hram_address) => {
+                let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
+                self.hram[adjusted_adr]
+            }
+
+            address::INTE_REGISTER => self
                 .isr_controller
                 .read_byte_from_hardware_register(address),
 
@@ -35,12 +61,18 @@ impl IOMMU {
 
     pub fn write_byte(&mut self, address: u16, data: u8) {
         match address {
-            hram_adr if address::HIGH_RAM.contains(&hram_adr) => {
-                let converted_address = (address - address::HIGH_RAM.start()) as usize;
-                self.hram[converted_address] = data;
+            not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {}
+
+            io_address if address::HARDWARE_IO_REGISTERS.contains(&io_address) => {
+                self.store_value_to_io_register(io_address, data);
             }
 
-            address::INTF_REGISTER | address::INTE_REGISTER => self
+            hram_address if address::HIGH_RAM.contains(&hram_address) => {
+                let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
+                self.hram[adjusted_adr] = data;
+            }
+
+            address::INTE_REGISTER => self
                 .isr_controller
                 .write_byte_to_hardware_register(address, data),
 
@@ -63,19 +95,47 @@ impl IOMMU {
 }
 
 #[cfg(test)]
-mod mmu_ut {
+mod ut {
     use super::*;
 
     #[test]
-    fn write_read_test() {
-        //Little Endianness
+    fn little_endianness_test() {
         let mut mmu = IOMMU::new();
-        const WORKING_RAM_START_ADDRESS: u16 = 0xC000;
-        const EXP_VALUE: u16 = 0xABCD;
 
-        mmu.write_word(WORKING_RAM_START_ADDRESS, EXP_VALUE);
-        let actual_value = mmu.read_word(WORKING_RAM_START_ADDRESS);
+        mmu.write_byte(*address::WORKING_RAM_BANK_0.start(), 0xCD);
+        mmu.write_byte(*address::WORKING_RAM_BANK_0.start() + 1, 0xAB);
+        let actual_value = mmu.read_word(*address::WORKING_RAM_BANK_0.start());
 
-        assert_eq!(EXP_VALUE, actual_value);
+        assert_eq!(0xABCD, actual_value);
+    }
+    #[test]
+    fn read_write_to_memory_map_test() {
+        const EXP_STORED_VALUE: u8 = 0xCD;
+        let mut mmu = IOMMU::new();
+
+        // [0xFEA0 - 0xFEFF] Not Usable
+        mmu.write_byte(*address::NOT_USABLE.start(), EXP_STORED_VALUE);
+        assert_eq!(
+            memory::DEFAULT_INIT_VALUE,
+            mmu.read_byte(*address::NOT_USABLE.start())
+        );
+
+        // [0xFF80 - 0xFFFE] High RAM (HRAM)
+        mmu.write_byte(*address::HIGH_RAM.start() + 1, EXP_STORED_VALUE);
+        assert_eq!(
+            EXP_STORED_VALUE,
+            mmu.read_byte(*address::HIGH_RAM.start() + 1)
+        );
+    }
+
+    #[test]
+    fn read_write_to_io_register_test() {
+        let mut mmu = IOMMU::new();
+
+        // r/w to intf
+        mmu.write_byte(address::INTF_REGISTER, 0xAA);
+        let actual_value = mmu.read_byte(address::INTF_REGISTER);
+
+        assert_eq!(0x0A, actual_value);
     }
 }
