@@ -5,6 +5,7 @@ pub mod serial;
 ///
 ///
 /// I/O
+///
 /// The I/O region of the address bus is connected to a lot of peripherals:
 ///
 /// - Video Controller
