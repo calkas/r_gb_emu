@@ -38,10 +38,11 @@ pub mod gb_memory_map {
         pub const ECHO_RAM: RangeInclusive<u16> = 0xE000..=0xFDFF;
         pub const OAM: RangeInclusive<u16> = 0xFE00..=0xFE9F;
         pub const NOT_USABLE: RangeInclusive<u16> = 0xFEA0..=0xFEFF;
-        pub const HARDWARE_IO_REGISTERS: RangeInclusive<u16> = 0xFF00..=0xFF7F;
+        pub const HARDWARE_IO_REGISTERS_1: RangeInclusive<u16> = 0xFF00..=0xFF0E;
+        pub const HARDWARE_IO_REGISTERS_2: RangeInclusive<u16> = 0xFF10..=0xFF7F;
         pub const HIGH_RAM: RangeInclusive<u16> = 0xFF80..=0xFFFE;
-        pub const INTE_REGISTER: u16 = 0xFFFF;
 
+        pub const INTE_REGISTER: u16 = 0xFFFF;
         pub const INTF_REGISTER: u16 = 0xFF0F;
         pub const SERIAL_DATA_REGISTER: u16 = 0xFF01;
         pub const SERIAL_CONTROL_REGISTER: u16 = 0xFF02;

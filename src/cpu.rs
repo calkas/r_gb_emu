@@ -12,10 +12,10 @@ pub struct Cpu<'a> {
     pub register: Registers,
     pub cycle: u32,
     pub control: ControlFlags,
-    pub iommu: &'a mut IOMMU,
+    pub iommu: &'a mut IOMMU<'a>,
 }
 impl<'a> Cpu<'a> {
-    pub fn new(iommu: &'a mut IOMMU) -> Self {
+    pub fn new(iommu: &'a mut IOMMU<'a>) -> Self {
         Cpu {
             register: Registers::new(),
             cycle: 0,

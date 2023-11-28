@@ -7,7 +7,7 @@ use crate::constants::gb_memory_map::address;
 ///
 /// Serial Link: The serial link works one character at a time.
 /// If you detect a value of 0x81 written to address 0xFF02, then log the content of address 0xFF01
-struct SerialDataTransfer {
+pub struct SerialDataTransfer {
     data: u8,
     control: u8,
     test_data: Vec<u8>,
