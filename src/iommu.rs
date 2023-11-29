@@ -1,6 +1,7 @@
 use super::constants::gb_memory_map::{address, memory};
 use crate::peripheral::{
     interrupt_controller::InterruptController, serial::SerialDataTransfer, HardwareAccessible,
+    IoWorkingCycle,
 };
 /// # I/O Memory Management
 /// Input–output memory management unit
@@ -61,6 +62,12 @@ impl IOMMU {
 
             _ => self.temp_memory[address as usize] = data,
         }
+    }
+
+    pub fn step(&mut self, cycle: u32) {
+        self.serial.run_cycle(cycle);
+        self.isr_controller.intf.serial_link = self.serial.is_interrupt();
+        self.serial.reset_interrupt();
     }
 
     pub fn read_word(&mut self, address: u16) -> u16 {

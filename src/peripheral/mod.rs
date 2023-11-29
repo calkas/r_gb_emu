@@ -17,7 +17,10 @@ pub mod timer;
 pub trait HardwareAccessible {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8;
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8);
-    fn run_cycle(&mut self, cycle: u32) {
-        //empty
-    }
+}
+
+pub trait IoWorkingCycle {
+    fn is_interrupt(&self) -> bool;
+    fn reset_interrupt(&mut self);
+    fn run_cycle(&mut self, cycle: u32);
 }

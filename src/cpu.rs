@@ -48,6 +48,8 @@ impl Cpu {
         } else {
             self.execute(opcode);
         }
+
+        self.iommu.step(self.cycle);
         //self.dump_regs();
         //println!("---------------------");
     }
