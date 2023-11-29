@@ -78,7 +78,7 @@ impl HardwareAccessible for InterruptController {
             address::INTF_REGISTER => InterruptRegister::into(self.intf),
             address::INTE_REGISTER => InterruptRegister::into(self.inte),
             _ => panic!(
-                "Read - This address [{}] is not for interrupt controller",
+                "Read - This address [{:#02x?}] is not for interrupt controller",
                 address
             ),
         }
@@ -88,7 +88,7 @@ impl HardwareAccessible for InterruptController {
             address::INTF_REGISTER => self.intf = InterruptRegister::from(data),
             address::INTE_REGISTER => self.inte = InterruptRegister::from(data),
             _ => panic!(
-                "Write - This address [{}] is not for interrupt controller",
+                "Write - This address [{:#02x?}] is not for interrupt controller",
                 address
             ),
         }

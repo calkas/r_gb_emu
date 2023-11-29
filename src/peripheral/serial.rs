@@ -38,7 +38,10 @@ impl HardwareAccessible for SerialDataTransfer {
         match address {
             address::SERIAL_DATA_REGISTER => self.data,
             address::SERIAL_CONTROL_REGISTER => self.control,
-            _ => memory::DEFAULT_INIT_VALUE,
+            _ => panic!(
+                "Read - This address [{:#02x?}] is not for SerialDataTransfer",
+                address
+            ),
         }
     }
 
@@ -52,7 +55,10 @@ impl HardwareAccessible for SerialDataTransfer {
                 self.write_data_to_test_buff_when_required(data);
                 //todo interrupt handling
             }
-            _ => {}
+            _ => panic!(
+                "Write - This address [{:#02x?}] is not for SerialDataTransfer",
+                address
+            ),
         }
     }
 }
