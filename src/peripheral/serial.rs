@@ -1,5 +1,5 @@
 use super::HardwareAccessible;
-use crate::constants::gb_memory_map::address;
+use crate::constants::gb_memory_map::{address, memory};
 
 /// # SerialDataTransfer
 ///
@@ -38,10 +38,7 @@ impl HardwareAccessible for SerialDataTransfer {
         match address {
             address::SERIAL_DATA_REGISTER => self.data,
             address::SERIAL_CONTROL_REGISTER => self.control,
-            _ => panic!(
-                "Read - This address [{}] is not for SerialDataTransfer",
-                address
-            ),
+            _ => memory::DEFAULT_INIT_VALUE,
         }
     }
 
@@ -55,10 +52,7 @@ impl HardwareAccessible for SerialDataTransfer {
                 self.write_data_to_test_buff_when_required(data);
                 //todo interrupt handling
             }
-            _ => panic!(
-                "Write - This address [{}] is not for SerialDataTransfer",
-                address
-            ),
+            _ => {}
         }
     }
 }
