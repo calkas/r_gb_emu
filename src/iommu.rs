@@ -30,8 +30,8 @@ impl IOMMU {
                 let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
                 self.hram[adjusted_adr]
             }
-            address::SERIAL_DATA_REGISTER | address::SERIAL_CONTROL_REGISTER => {
-                self.serial.read_byte_from_hardware_register(address)
+            serial_address if address::HARDWARE_IO_SERIAL.contains(&serial_address) => {
+                self.serial.read_byte_from_hardware_register(serial_address)
             }
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
@@ -51,9 +51,9 @@ impl IOMMU {
                 self.hram[adjusted_adr] = data;
             }
 
-            address::SERIAL_DATA_REGISTER | address::SERIAL_CONTROL_REGISTER => {
-                self.serial.write_byte_to_hardware_register(address, data)
-            }
+            serial_address if address::HARDWARE_IO_SERIAL.contains(&serial_address) => self
+                .serial
+                .write_byte_to_hardware_register(serial_address, data),
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
