@@ -1,5 +1,5 @@
 use super::{HardwareAccessible, IoWorkingCycle};
-use crate::constants::gb_memory_map::{address, memory};
+use crate::constants::gb_memory_map::address;
 
 /// # SerialDataTransfer
 ///
@@ -74,5 +74,5 @@ impl IoWorkingCycle for SerialDataTransfer {
         self.interrupt_req = false;
     }
 
-    fn run_cycle(&mut self, cycle: u32) {}
+    fn next(&mut self, cycle: u32) {}
 }

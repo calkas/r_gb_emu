@@ -1,7 +1,7 @@
 use super::constants::gb_memory_map::{address, memory};
 use crate::peripheral::{
-    interrupt_controller::InterruptController, serial::SerialDataTransfer, HardwareAccessible,
-    IoWorkingCycle,
+    interrupt_controller::InterruptController, serial::SerialDataTransfer, timer::Timer,
+    HardwareAccessible, IoWorkingCycle,
 };
 /// # I/O Memory Management
 /// Input–output memory management unit
@@ -10,6 +10,7 @@ pub struct IOMMU {
     temp_memory: [u8; 0x10000], // Temporary solution For now all 64kB is available
     isr_controller: InterruptController,
     serial: SerialDataTransfer,
+    timer: Timer,
 }
 
 impl IOMMU {
@@ -19,6 +20,7 @@ impl IOMMU {
             temp_memory: [memory::DEFAULT_INIT_VALUE; 0x10000],
             isr_controller: InterruptController::new(),
             serial: SerialDataTransfer::new(),
+            timer: Timer::new(),
         }
     }
     pub fn read_byte(&self, address: u16) -> u8 {
@@ -31,8 +33,13 @@ impl IOMMU {
                 let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
                 self.hram[adjusted_adr]
             }
+
             serial_address if address::HARDWARE_IO_SERIAL.contains(&serial_address) => {
                 self.serial.read_byte_from_hardware_register(serial_address)
+            }
+
+            timer_address if address::HARDWARE_IO_TIMER.contains(&timer_address) => {
+                self.timer.read_byte_from_hardware_register(timer_address)
             }
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
@@ -56,6 +63,11 @@ impl IOMMU {
                 .serial
                 .write_byte_to_hardware_register(serial_address, data),
 
+            timer_address if address::HARDWARE_IO_TIMER.contains(&timer_address) => {
+                self.timer
+                    .write_byte_to_hardware_register(timer_address, data);
+            }
+
             address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
                 .write_byte_to_hardware_register(address, data),
@@ -64,10 +76,22 @@ impl IOMMU {
         }
     }
 
-    pub fn step(&mut self, cycle: u32) {
-        self.serial.run_cycle(cycle);
+    pub fn process(&mut self, cycles: u32) {
+        //  * 0 V-Blank
+
+        //  * 1 LCD
+
+        //  * 2 Timer
+        self.timer.next(cycles);
+        self.isr_controller.intf.timer = self.timer.is_interrupt();
+        self.timer.reset_interrupt();
+
+        //  * 3 Serial Link
+        self.serial.next(cycles);
         self.isr_controller.intf.serial_link = self.serial.is_interrupt();
         self.serial.reset_interrupt();
+
+        //  * 4 Joypad
     }
 
     pub fn read_word(&mut self, address: u16) -> u16 {

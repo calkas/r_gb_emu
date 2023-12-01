@@ -22,5 +22,5 @@ pub trait HardwareAccessible {
 pub trait IoWorkingCycle {
     fn is_interrupt(&self) -> bool;
     fn reset_interrupt(&mut self);
-    fn run_cycle(&mut self, cycle: u32);
+    fn next(&mut self, cycles: u32);
 }

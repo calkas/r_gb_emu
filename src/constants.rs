@@ -79,3 +79,16 @@ pub mod gb_memory_map {
         pub const JOYPAD: u16 = 0x0060;
     }
 }
+
+pub mod clock {
+    pub const CPU_CLOCK_FREQUENCY: u32 = 4194304;
+    pub const CPU_MAX_CYCLES: u32 = 69905;
+
+    pub mod timer {
+        pub const DIV_CLOCK_DIV: u32 = 255;
+        pub const TIMA_CLOCK_DIV_0: u32 = 1024;
+        pub const TIMA_CLOCK_DIV_1: u32 = 16;
+        pub const TIMA_CLOCK_DIV_2: u32 = 64;
+        pub const TIMA_CLOCK_DIV_3: u32 = 256;
+    }
+}
