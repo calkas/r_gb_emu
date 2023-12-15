@@ -11,20 +11,20 @@ use crate::constants::gb_memory_map::address;
 pub struct SerialDataTransfer {
     data: u8,
     control: u8,
-    test_data: Vec<u8>,
+    test_out_data: Vec<char>,
     interrupt_req: bool,
 }
 
 impl SerialDataTransfer {
     fn write_data_to_test_buff_when_required(&mut self, control_data: u8) {
-        if control_data & 0x81 == 0x81 {
-            self.test_data.push(self.data);
+        if control_data == 0x81 {
+            self.test_out_data.push(self.data as char);
             self.interrupt_req = true;
         }
     }
 
-    pub fn get_test_buff(&self) -> &[u8] {
-        &self.test_data
+    pub fn get_test_buff(&self) -> &[char] {
+        &self.test_out_data
     }
 }
 
@@ -67,4 +67,30 @@ impl IoWorkingCycle for SerialDataTransfer {
     }
 
     fn next(&mut self, _cycle: u32) {}
+}
+#[cfg(test)]
+mod ut {
+    use super::*;
+
+    #[test]
+    fn serial_output_data_test() {
+        let mut serial = SerialDataTransfer::default();
+        let exp_word: [char; 6] = ['S', 'E', 'R', 'I', 'A', 'L'];
+
+        for e in exp_word {
+            serial.write_byte_to_hardware_register(address::SERIAL_DATA_REGISTER, e as u8);
+            assert_eq!(
+                e as u8,
+                serial.read_byte_from_hardware_register(address::SERIAL_DATA_REGISTER)
+            );
+
+            serial.write_byte_to_hardware_register(address::SERIAL_CONTROL_REGISTER, 0x81);
+        }
+
+        assert_eq!(exp_word.len(), serial.test_out_data.len());
+
+        for i in 0..exp_word.len() {
+            assert_eq!(exp_word[i], serial.test_out_data[i]);
+        }
+    }
 }
