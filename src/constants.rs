@@ -53,7 +53,6 @@ pub mod gb_memory_map {
             pub const ROM_SIZE: u16 = 0x0148;
             pub const RAM_SIZE: u16 = 0x0149;
         }
-
         //IO_HARDWARE_REGISTERS
         pub const JOYPAD_INPUT_REGISTER: u16 = 0xFF00;
         pub const SERIAL_DATA_REGISTER: u16 = 0xFF01;
@@ -69,6 +68,8 @@ pub mod gb_memory_map {
     pub mod memory {
         pub const DEFAULT_INIT_VALUE: u8 = 0xFF;
         pub const HIGH_RAM_SIZE: usize = 0x7F;
+        pub const WRAM_SIZE: usize = 0x2000; // Temporary solution when CGB will be support 
+        pub const WRAM_ADDRESS_MASK: usize = 0x1FFF;
     }
 
     /// ISR_ADDRESS

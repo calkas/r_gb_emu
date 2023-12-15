@@ -1,33 +1,58 @@
 use super::constants::gb_memory_map::{address, memory};
 use crate::peripheral::{
-    interrupt_controller::InterruptController, serial::SerialDataTransfer, timer::Timer,
-    HardwareAccessible, IoWorkingCycle,
+    cartridge::Cartridge, interrupt_controller::InterruptController, serial::SerialDataTransfer,
+    timer::Timer, HardwareAccessible, IoWorkingCycle,
 };
+use std::{cell::RefCell, rc::Rc};
 /// # I/O Memory Management
 /// Input–output memory management unit
 pub struct IOMMU {
+    cartridge_rom: Rc<RefCell<Cartridge>>,
+    wram: [u8; memory::WRAM_SIZE],
     hram: [u8; memory::HIGH_RAM_SIZE],
-    temp_memory: [u8; 0x10000], // Temporary solution For now all 64kB is available
     isr_controller: InterruptController,
-    serial: SerialDataTransfer,
+    pub serial: SerialDataTransfer,
     timer: Timer,
 }
 
 impl IOMMU {
-    pub fn new() -> Self {
+    pub fn new(cartridge: Rc<RefCell<Cartridge>>) -> Self {
         IOMMU {
+            cartridge_rom: cartridge,
+            wram: [memory::DEFAULT_INIT_VALUE; memory::WRAM_SIZE],
             hram: [memory::DEFAULT_INIT_VALUE; memory::HIGH_RAM_SIZE],
-            temp_memory: [memory::DEFAULT_INIT_VALUE; 0x10000],
-            isr_controller: InterruptController::new(),
-            serial: SerialDataTransfer::new(),
-            timer: Timer::new(),
+            isr_controller: InterruptController::default(),
+            serial: SerialDataTransfer::default(),
+            timer: Timer::default(),
         }
     }
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
+            rom_bank_0_address if address::CARTRIDGE_ROM_BANK_0.contains(&rom_bank_0_address) => {
+                self.cartridge_rom
+                    .borrow_mut()
+                    .read_byte_from_hardware_register(rom_bank_0_address)
+            }
+
+            rom_bank_n_address if address::CARTRIDGE_ROM_BANK_1_N.contains(&rom_bank_n_address) => {
+                self.cartridge_rom
+                    .borrow_mut()
+                    .read_byte_from_hardware_register(rom_bank_n_address)
+            }
+
+            wram_address
+                if address::WORKING_RAM_BANK_0.contains(&wram_address)
+                    | address::WORKING_RAM_BANK_1_7.contains(&wram_address) =>
+            {
+                self.wram[wram_address as usize & memory::WRAM_ADDRESS_MASK]
+            }
+
             not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {
                 memory::DEFAULT_INIT_VALUE
             }
+
+            0xFF44 => 0x90, //Hardcode LCD
+            0xFF4C..=0xFF7F => panic!("[IMMU ERROR][READ]: CGB not implemented"),
 
             hram_address if address::HIGH_RAM.contains(&hram_address) => {
                 let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
@@ -46,12 +71,34 @@ impl IOMMU {
                 .isr_controller
                 .read_byte_from_hardware_register(address),
 
-            _ => self.temp_memory[address as usize],
+            _ => {
+                //println!("Reading from unsupported addres: {:#06x?}", address);
+                memory::DEFAULT_INIT_VALUE
+            }
         }
     }
 
     pub fn write_byte(&mut self, address: u16, data: u8) {
         match address {
+            rom_bank_0_address if address::CARTRIDGE_ROM_BANK_0.contains(&rom_bank_0_address) => {
+                self.cartridge_rom
+                    .borrow_mut()
+                    .write_byte_to_hardware_register(rom_bank_0_address, data);
+            }
+
+            rom_bank_n_address if address::CARTRIDGE_ROM_BANK_1_N.contains(&rom_bank_n_address) => {
+                self.cartridge_rom
+                    .borrow_mut()
+                    .write_byte_to_hardware_register(rom_bank_n_address, data);
+            }
+
+            wram_address
+                if address::WORKING_RAM_BANK_0.contains(&wram_address)
+                    | address::WORKING_RAM_BANK_1_7.contains(&wram_address) =>
+            {
+                self.wram[wram_address as usize & memory::WRAM_ADDRESS_MASK] = data;
+            }
+
             not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {}
 
             hram_address if address::HIGH_RAM.contains(&hram_address) => {
@@ -72,7 +119,12 @@ impl IOMMU {
                 .isr_controller
                 .write_byte_to_hardware_register(address, data),
 
-            _ => self.temp_memory[address as usize] = data,
+            _ => {
+                // println!(
+                //     "Writing to unsupported addres: {:#06x?} data = {:#06x?}",
+                //     address, data
+                // );
+            }
         }
     }
 
@@ -110,23 +162,24 @@ impl IOMMU {
 
 #[cfg(test)]
 mod ut {
-
     use super::*;
 
     #[test]
     fn little_endianness_test() {
-        let mut iommu = IOMMU::new();
+        let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let mut iommu = IOMMU::new(cartridge.clone());
 
-        iommu.write_byte(*address::WORKING_RAM_BANK_0.start(), 0xCD);
-        iommu.write_byte(*address::WORKING_RAM_BANK_0.start() + 1, 0xAB);
-        let actual_value = iommu.read_word(*address::WORKING_RAM_BANK_0.start());
+        iommu.write_byte(*address::HIGH_RAM.start(), 0xCD);
+        iommu.write_byte(*address::HIGH_RAM.start() + 1, 0xAB);
+        let actual_value = iommu.read_word(*address::HIGH_RAM.start());
 
         assert_eq!(0xABCD, actual_value);
     }
     #[test]
     fn read_write_to_memory_map_test() {
         const EXP_STORED_VALUE: u8 = 0xCD;
-        let mut iommu = IOMMU::new();
+        let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let mut iommu = IOMMU::new(cartridge.clone());
 
         // [0xFEA0 - 0xFEFF] Not Usable
         iommu.write_byte(*address::NOT_USABLE.start(), EXP_STORED_VALUE);
@@ -145,7 +198,8 @@ mod ut {
 
     #[test]
     fn read_write_to_io_register_test() {
-        let mut iommu = IOMMU::new();
+        let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let mut iommu = IOMMU::new(cartridge.clone());
         iommu.write_byte(address::SERIAL_DATA_REGISTER, 0xAA);
 
         assert_eq!(0xAA, iommu.read_byte(address::SERIAL_DATA_REGISTER));

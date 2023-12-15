@@ -57,19 +57,12 @@ impl std::convert::From<InterruptRegister> for u8 {
         ret_val_flag
     }
 }
+#[derive(Default)]
 pub struct InterruptController {
     //IF register
     pub intf: InterruptRegister,
     //IE register
     pub inte: InterruptRegister,
-}
-impl InterruptController {
-    pub fn new() -> Self {
-        InterruptController {
-            intf: InterruptRegister::default(),
-            inte: InterruptRegister::default(),
-        }
-    }
 }
 
 impl HardwareAccessible for InterruptController {
@@ -101,7 +94,7 @@ mod ut {
     use super::*;
     #[test]
     fn ie_if_flag_test() {
-        let mut isr = InterruptController::new();
+        let mut isr = InterruptController::default();
 
         //IF
         isr.write_byte_to_hardware_register(address::INTF_REGISTER, 0x19);

@@ -1,4 +1,3 @@
-use crate::constants::gb_memory_map::address;
 use crate::iommu::IOMMU;
 
 pub static LOAD_OPCODES: [u8; 99] = [
@@ -70,7 +69,9 @@ pub fn pop(stack: &mut IOMMU, reg_sp: &mut u16) -> u16 {
 #[cfg(test)]
 mod ut {
     use super::*;
-    use crate::cpu_data::Registers;
+    use crate::constants::gb_memory_map::address;
+    use crate::{cpu_data::Registers, peripheral::cartridge::Cartridge};
+    use std::{cell::RefCell, rc::Rc};
 
     #[test]
     fn ld_test() {
@@ -143,7 +144,8 @@ mod ut {
     #[test]
     fn stack_test() {
         let mut register = Registers::new();
-        let mut iommu = IOMMU::new();
+        let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let mut iommu = IOMMU::new(cartridge.clone());
         register.sp = *address::HIGH_RAM.end();
 
         let mut exp_sp_value = register.sp - 2;

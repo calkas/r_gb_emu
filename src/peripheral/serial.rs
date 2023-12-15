@@ -7,6 +7,7 @@ use crate::constants::gb_memory_map::address;
 ///
 /// Serial Link: The serial link works one character at a time.
 /// If you detect a value of 0x81 written to address 0xFF02, then log the content of address 0xFF01
+#[derive(Default)]
 pub struct SerialDataTransfer {
     data: u8,
     control: u8,
@@ -15,15 +16,6 @@ pub struct SerialDataTransfer {
 }
 
 impl SerialDataTransfer {
-    pub fn new() -> Self {
-        SerialDataTransfer {
-            data: 0,
-            control: 0,
-            test_data: Vec::new(),
-            interrupt_req: false,
-        }
-    }
-
     fn write_data_to_test_buff_when_required(&mut self, control_data: u8) {
         if control_data & 0x81 == 0x81 {
             self.test_data.push(self.data);
@@ -74,5 +66,5 @@ impl IoWorkingCycle for SerialDataTransfer {
         self.interrupt_req = false;
     }
 
-    fn next(&mut self, cycle: u32) {}
+    fn next(&mut self, _cycle: u32) {}
 }

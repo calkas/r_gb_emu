@@ -40,6 +40,8 @@ impl std::convert::From<TimerControlRegister> for u8 {
         ret_reg_val
     }
 }
+
+#[derive(Default)]
 pub struct Timer {
     div_counter_register: u8,           // DIV
     tima_counter_register: u8,          // TIMA
@@ -51,18 +53,6 @@ pub struct Timer {
 }
 
 impl Timer {
-    pub fn new() -> Self {
-        Self {
-            div_counter_register: 0,
-            tima_counter_register: 0,
-            modulo_register: 0,
-            tac_register: TimerControlRegister::default(),
-            interrupt_req: false,
-            internal_div_counter: 0,
-            internal_tima_counter: 0,
-        }
-    }
-
     fn div_counter_update(&mut self, cycles: u32) {
         self.internal_div_counter += cycles;
         // It counts up at a frequency of 16382 Hz which means every 256 CPU clock cycles
@@ -153,7 +143,7 @@ mod ut {
 
     #[test]
     fn div_counter_test() {
-        let mut timer = Timer::new();
+        let mut timer = Timer::default();
         // the tima is not enable
         timer.next(256);
         assert_eq!(1, timer.div_counter_register);
@@ -173,7 +163,7 @@ mod ut {
 
     #[test]
     fn tima_counter_test() {
-        let mut timer = Timer::new();
+        let mut timer = Timer::default();
 
         //Turn on tima counter
         timer.write_byte_to_hardware_register(address::TIMER_TAC_REGISTER, 4);

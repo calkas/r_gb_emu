@@ -112,15 +112,17 @@ pub struct Cartridge {
     controller: CartridgeController,
 }
 
-impl Cartridge {
-    pub fn new() -> Self {
+impl Default for Cartridge {
+    fn default() -> Self {
         Self {
-            rom: vec![],
-            ram: vec![],
+            rom: Default::default(),
+            ram: Default::default(),
             controller: CartridgeController::new(),
         }
     }
+}
 
+impl Cartridge {
     pub fn load(&mut self, cartridge_path: &str) {
         let path = Path::new(cartridge_path);
 
@@ -155,10 +157,8 @@ impl Cartridge {
     }
 
     fn ram_bank_enable_request(&mut self, address: u16, data: u8) {
-        if self.controller.cart_type == CartridgeType::Mbc2 {
-            if address & 0x100 != 0 {
-                return;
-            }
+        if self.controller.cart_type == CartridgeType::Mbc2 && address & 0x100 != 0 {
+            return;
         }
         self.controller.is_ram_enable = data & 0x0F == 0x0A;
     }
@@ -245,7 +245,7 @@ impl Cartridge {
         }
 
         let mut new_ram_address = (address - *address::CARTRIDGE_RAM.start()) as usize;
-        new_ram_address = new_ram_address + self.controller.current_ram_bank * 0x2000;
+        new_ram_address += self.controller.current_ram_bank * 0x2000;
         self.ram[new_ram_address] = data;
     }
 }
@@ -260,7 +260,7 @@ impl HardwareAccessible for Cartridge {
             rom_bank_n_adr if address::CARTRIDGE_ROM_BANK_1_N.contains(&rom_bank_n_adr) => {
                 let mut new_rom_address =
                     (rom_bank_n_adr - *address::CARTRIDGE_ROM_BANK_1_N.start()) as usize;
-                new_rom_address = new_rom_address + (self.controller.current_rom_bank * 0x4000);
+                new_rom_address += self.controller.current_rom_bank * 0x4000;
                 self.rom[new_rom_address]
             }
 
@@ -268,7 +268,7 @@ impl HardwareAccessible for Cartridge {
                 if self.controller.is_ram_enable {
                     let mut new_ram_address =
                         (ram_bank_adr - *address::CARTRIDGE_RAM.start()) as usize;
-                    new_ram_address = new_ram_address + (self.controller.current_ram_bank * 0x2000);
+                    new_ram_address += self.controller.current_ram_bank * 0x2000;
                     self.ram[new_ram_address]
                 } else {
                     memory::DEFAULT_INIT_VALUE

@@ -1,11 +1,13 @@
 use super::constants::gb_memory_map::{address, isr_adress};
-use super::cpu_data::{ControlFlags, Registers};
+use super::cpu_data::{ControlFlags, FlagsRegister, Registers};
 use super::iommu::IOMMU;
 use crate::instructions::{
     self, arithmetic_logic, cpu_control, jump, load, rotate_and_shift, single_bit_operation,
 };
 use crate::peripheral::interrupt_controller::InterruptRegister;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 /// # DMG-CPU
 /// 8-bit 8080-like Sharp CPU
 pub struct Cpu {
@@ -13,32 +15,33 @@ pub struct Cpu {
     cycles: u32,
     last_cycles: u32,
     control: ControlFlags,
-    pub iommu: IOMMU,
+    iommu: Rc<RefCell<IOMMU>>,
 }
 impl Cpu {
-    pub fn new() -> Self {
+    pub fn new(iommu: Rc<RefCell<IOMMU>>) -> Self {
         Cpu {
             register: Registers::new(),
             cycles: 0,
             last_cycles: 0,
             control: ControlFlags::new(),
-            iommu: IOMMU::new(),
+            iommu,
         }
     }
 
-    pub fn load_program(&mut self, program: &[u8]) {
-        //Temporary solution
-        assert!(program.len() <= 0x10000);
-        for (index, byte) in program.iter().enumerate() {
-            self.iommu.write_byte(index as u16, *byte);
-        }
-
-        //Set stack pointer
+    pub fn init(&mut self) {
+        self.register.a = 0x01;
+        self.register.flag = FlagsRegister::from(0xB0);
+        self.register.b = 0x00;
+        self.register.c = 0x13;
+        self.register.d = 0x00;
+        self.register.e = 0xD8;
+        self.register.h = 0x01;
+        self.register.l = 0x4D;
         self.register.sp = *address::HIGH_RAM.end();
-        self.register.pc = 0x100;
+        self.register.pc = address::cartridge_header::ENTRY_POINT;
     }
 
-    pub fn process(&mut self) {
+    pub fn process(&mut self) -> u32 {
         //todo HALT handling support
         //println!("---------------------");
         self.interrupt_handling();
@@ -52,11 +55,13 @@ impl Cpu {
         }
 
         let cycles_to_process = self.cycles - self.last_cycles;
-        self.iommu.process(cycles_to_process);
+        self.iommu.borrow_mut().process(cycles_to_process);
         self.last_cycles = self.cycles;
 
         //self.dump_regs();
         //println!("---------------------");
+
+        self.cycles
     }
 
     fn is_prefix_instruction(&self, opcode: u8) -> bool {
@@ -64,7 +69,7 @@ impl Cpu {
     }
 
     fn fetch_byte(&mut self) -> u8 {
-        let byte = self.iommu.read_byte(self.register.pc);
+        let byte = self.iommu.borrow_mut().read_byte(self.register.pc);
         self.register.pc = self.register.pc.wrapping_add(1);
         byte
     }
@@ -80,12 +85,16 @@ impl Cpu {
             return;
         }
 
-        let intf = self.iommu.read_byte(address::INTF_REGISTER);
-        let inte = self.iommu.read_byte(address::INTE_REGISTER);
+        let intf = self.iommu.borrow_mut().read_byte(address::INTF_REGISTER);
+        let inte = self.iommu.borrow_mut().read_byte(address::INTE_REGISTER);
 
         if inte & intf != 0 {
             self.control.ime = false;
-            load::push(&mut self.iommu, &mut self.register.sp, self.register.pc);
+            load::push(
+                &mut self.iommu.borrow_mut(),
+                &mut self.register.sp,
+                self.register.pc,
+            );
             let mut isr_reg = InterruptRegister::from(intf);
             if isr_reg.v_blank {
                 self.register.pc = isr_adress::V_BLANK;
@@ -107,6 +116,7 @@ impl Cpu {
             let mask: u8 = InterruptRegister::into(isr_reg);
             let reg_val_for_reset_isr = mask & intf;
             self.iommu
+                .borrow_mut()
                 .write_byte(address::INTF_REGISTER, reg_val_for_reset_isr);
             self.cycles += 16;
         }
@@ -141,7 +151,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x86 => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::add(&mut self.register.flag, &mut self.register.a, val, 0);
                 self.cycles += 8;
             }
@@ -175,7 +185,7 @@ impl Cpu {
                 self.cycles += 8;
             }
             0x8E => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::adc(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles += 8;
             }
@@ -195,7 +205,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x96 => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::sub(&mut self.register.flag, &mut self.register.a, val, 0);
                 self.cycles += 8;
             }
@@ -219,7 +229,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x9E => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::sbc(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles += 8;
             }
@@ -243,7 +253,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0xA6 => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::and(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles += 8;
             }
@@ -267,7 +277,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0xAE => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::xor(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles += 8;
             }
@@ -291,7 +301,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0xB6 => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::or(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles += 8;
             }
@@ -315,7 +325,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0xBE => {
-                let val = self.iommu.read_byte(self.register.get_hl());
+                let val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::cp(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles += 8;
             }
@@ -375,9 +385,11 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x34 => {
-                let mut val = self.iommu.read_byte(self.register.get_hl());
+                let mut val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::inc(&mut self.register.flag, &mut val);
-                self.iommu.write_byte(self.register.get_hl(), val);
+                self.iommu
+                    .borrow_mut()
+                    .write_byte(self.register.get_hl(), val);
                 self.cycles += 12;
             }
 
@@ -431,9 +443,11 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x35 => {
-                let mut val = self.iommu.read_byte(self.register.get_hl());
+                let mut val = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 arithmetic_logic::dec(&mut self.register.flag, &mut val);
-                self.iommu.write_byte(self.register.get_hl(), val);
+                self.iommu
+                    .borrow_mut()
+                    .write_byte(self.register.get_hl(), val);
                 self.cycles += 12;
             }
 
@@ -473,7 +487,7 @@ impl Cpu {
                 self.cycles += 12;
             }
             0x02 => {
-                let value = self.iommu.read_byte(self.register.get_bc());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_bc());
                 load::ld(&mut self.register.a, value);
                 self.cycles += 8;
             }
@@ -484,11 +498,13 @@ impl Cpu {
             }
             0x08 => {
                 let address = self.fetch_word();
-                self.iommu.write_word(address, self.register.sp);
+                self.iommu
+                    .borrow_mut()
+                    .write_word(address, self.register.sp);
                 self.cycles += 20;
             }
             0x0A => {
-                let value = self.iommu.read_byte(self.register.get_bc());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_bc());
                 load::ld(&mut self.register.b, value);
                 self.cycles += 8;
             }
@@ -504,7 +520,7 @@ impl Cpu {
             }
             0x12 => {
                 let address = self.register.get_de();
-                self.iommu.write_byte(address, self.register.a);
+                self.iommu.borrow_mut().write_byte(address, self.register.a);
                 self.cycles += 8;
             }
             0x16 => {
@@ -513,7 +529,7 @@ impl Cpu {
                 self.cycles += 8;
             }
             0x1A => {
-                let value = self.iommu.read_byte(self.register.get_de());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_de());
                 load::ld(&mut self.register.a, value);
                 self.cycles += 8;
             }
@@ -529,7 +545,7 @@ impl Cpu {
             }
             0x22 => {
                 let address = load::hli(&mut self.register.h, &mut self.register.l);
-                self.iommu.write_byte(address, self.register.a);
+                self.iommu.borrow_mut().write_byte(address, self.register.a);
                 self.cycles += 8;
             }
             0x26 => {
@@ -539,7 +555,7 @@ impl Cpu {
             }
             0x2A => {
                 let address = load::hli(&mut self.register.h, &mut self.register.l);
-                self.register.a = self.iommu.read_byte(address);
+                self.register.a = self.iommu.borrow_mut().read_byte(address);
                 self.cycles += 8;
             }
             0x2E => {
@@ -553,17 +569,19 @@ impl Cpu {
             }
             0x32 => {
                 let address = load::hld(&mut self.register.h, &mut self.register.l);
-                self.iommu.write_byte(address, self.register.a);
+                self.iommu.borrow_mut().write_byte(address, self.register.a);
                 self.cycles += 8;
             }
             0x36 => {
                 let value = self.fetch_byte();
-                self.iommu.write_byte(self.register.get_hl(), value);
+                self.iommu
+                    .borrow_mut()
+                    .write_byte(self.register.get_hl(), value);
                 self.cycles += 12;
             }
             0x3A => {
                 let address = load::hld(&mut self.register.h, &mut self.register.l);
-                self.register.a = self.iommu.read_byte(address);
+                self.register.a = self.iommu.borrow_mut().read_byte(address);
                 self.cycles += 8;
             }
             0x3E => {
@@ -581,7 +599,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x46 => {
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 load::ld(&mut self.register.b, value);
                 self.cycles += 8;
             }
@@ -595,7 +613,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x4E => {
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 load::ld(&mut self.register.c, value);
                 self.cycles += 8;
             }
@@ -609,7 +627,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x56 => {
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 load::ld(&mut self.register.d, value);
                 self.cycles += 8;
             }
@@ -623,7 +641,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x5E => {
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 load::ld(&mut self.register.e, value);
                 self.cycles += 8;
             }
@@ -638,7 +656,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x66 => {
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 load::ld(&mut self.register.h, value);
                 self.cycles += 8;
             }
@@ -652,7 +670,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x6E => {
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 load::ld(&mut self.register.e, value);
                 self.cycles += 8;
             }
@@ -663,7 +681,7 @@ impl Cpu {
                     opcode,
                 );
                 let address = self.register.get_hl();
-                self.iommu.write_byte(address, register_value);
+                self.iommu.borrow_mut().write_byte(address, register_value);
                 self.cycles += 8;
             }
             // LD A, r
@@ -676,7 +694,7 @@ impl Cpu {
                 self.cycles += 4;
             }
             0x7E => {
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 load::ld(&mut self.register.a, value);
                 self.cycles += 8;
             }
@@ -684,32 +702,36 @@ impl Cpu {
             0xE0 => {
                 let address = self.fetch_byte();
                 let port_address = load::calculate_address_for_io_port(address);
-                self.iommu.write_byte(port_address, self.register.a);
+                self.iommu
+                    .borrow_mut()
+                    .write_byte(port_address, self.register.a);
                 self.cycles += 12;
             }
 
             //write to io-port C
             0xE2 => {
                 let port_address = load::calculate_address_for_io_port(self.register.c);
-                self.iommu.write_byte(port_address, self.register.a);
+                self.iommu
+                    .borrow_mut()
+                    .write_byte(port_address, self.register.a);
                 self.cycles += 8;
             }
             0xEA => {
                 let address = self.fetch_word();
-                self.iommu.write_byte(address, self.register.a);
+                self.iommu.borrow_mut().write_byte(address, self.register.a);
                 self.cycles += 16;
             }
             //read from io-port n (memory FF00+n)
             0xF0 => {
                 let address = self.fetch_byte();
                 let port_address = load::calculate_address_for_io_port(address);
-                self.register.a = self.iommu.read_byte(port_address);
+                self.register.a = self.iommu.borrow_mut().read_byte(port_address);
                 self.cycles += 12;
             }
             // read from io-port C
             0xF2 => {
                 let port_address = load::calculate_address_for_io_port(self.register.c);
-                self.register.a = self.iommu.read_byte(port_address);
+                self.register.a = self.iommu.borrow_mut().read_byte(port_address);
                 self.cycles += 8;
             }
             //0xF8 in ADD instructions
@@ -719,7 +741,7 @@ impl Cpu {
             }
             0xFA => {
                 let address = self.fetch_word();
-                self.register.a = self.iommu.read_byte(address);
+                self.register.a = self.iommu.borrow_mut().read_byte(address);
                 self.cycles += 16;
             }
             // PUSH
@@ -727,33 +749,33 @@ impl Cpu {
                 let reg_val = self
                     .register
                     .get_reg16_value_from_opcode_array(&[0xC5, 0xD5, 0xE5], opcode);
-                load::push(&mut self.iommu, &mut self.register.sp, reg_val);
+                load::push(&mut self.iommu.borrow_mut(), &mut self.register.sp, reg_val);
                 self.cycles += 16;
             }
             //AF
             0xF5 => {
                 let reg_val = self.register.get_af();
-                load::push(&mut self.iommu, &mut self.register.sp, reg_val);
+                load::push(&mut self.iommu.borrow_mut(), &mut self.register.sp, reg_val);
                 self.cycles += 16;
             }
             // POP
             0xC1 => {
-                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                let value = load::pop(&mut self.iommu.borrow_mut(), &mut self.register.sp);
                 self.register.set_bc(value);
                 self.cycles += 12;
             }
             0xD1 => {
-                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                let value = load::pop(&mut self.iommu.borrow_mut(), &mut self.register.sp);
                 self.register.set_de(value);
                 self.cycles += 12;
             }
             0xE1 => {
-                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                let value = load::pop(&mut self.iommu.borrow_mut(), &mut self.register.sp);
                 self.register.set_hl(value);
                 self.cycles += 12;
             }
             0xF1 => {
-                let value = load::pop(&mut self.iommu, &mut self.register.sp);
+                let value = load::pop(&mut self.iommu.borrow_mut(), &mut self.register.sp);
                 self.register.set_af(value);
                 self.cycles += 12;
             }
@@ -814,9 +836,9 @@ impl Cpu {
             }
             0x06 => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::rlc(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x07 => {
@@ -851,9 +873,9 @@ impl Cpu {
             }
             0x0E => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::rrc(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x0F => {
@@ -888,9 +910,9 @@ impl Cpu {
             }
             0x16 => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::rl(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x17 => {
@@ -925,9 +947,9 @@ impl Cpu {
             }
             0x1E => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::rr(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x1F => {
@@ -962,9 +984,9 @@ impl Cpu {
             }
             0x26 => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::sla(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x27 => {
@@ -999,9 +1021,9 @@ impl Cpu {
             }
             0x2E => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::sra(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x2F => {
@@ -1036,9 +1058,9 @@ impl Cpu {
             }
             0x36 => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::swap(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x37 => {
@@ -1073,9 +1095,9 @@ impl Cpu {
             }
             0x3E => {
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 rotate_and_shift::srl(&mut self.register.flag, &mut value);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
             0x3F => {
@@ -1159,7 +1181,7 @@ impl Cpu {
                     .position(|&x| x == opcode)
                     .unwrap() as u8;
 
-                let value = self.iommu.read_byte(self.register.get_hl());
+                let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
                 single_bit_operation::bit(&mut self.register.flag, value, bit_number);
                 self.cycles += 12;
             }
@@ -1237,9 +1259,9 @@ impl Cpu {
                     .unwrap() as u8;
 
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 single_bit_operation::res(&mut value, bit_number);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
 
@@ -1316,9 +1338,9 @@ impl Cpu {
                     .unwrap() as u8;
 
                 let address = self.register.get_hl();
-                let mut value = self.iommu.read_byte(address);
+                let mut value = self.iommu.borrow_mut().read_byte(address);
                 single_bit_operation::set(&mut value, bit_number);
-                self.iommu.write_byte(address, value);
+                self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles += 16;
             }
 
@@ -1383,7 +1405,7 @@ impl Cpu {
                     jump::call(
                         &mut self.register.pc,
                         address,
-                        &mut self.iommu,
+                        &mut self.iommu.borrow_mut(),
                         &mut self.register.sp,
                     );
                     self.cycles += 24;
@@ -1405,7 +1427,7 @@ impl Cpu {
                 if *conditional_ret.get(&opcode).unwrap() {
                     jump::ret(
                         &mut self.register.pc,
-                        &mut self.iommu,
+                        &mut self.iommu.borrow_mut(),
                         &mut self.register.sp,
                     );
                     if opcode == 0xC9 {
@@ -1422,7 +1444,7 @@ impl Cpu {
             0xD9 => {
                 jump::ret(
                     &mut self.register.pc,
-                    &mut self.iommu,
+                    &mut self.iommu.borrow_mut(),
                     &mut self.register.sp,
                 );
                 // return and enable interrupts (IME=1)
@@ -1446,7 +1468,7 @@ impl Cpu {
                 jump::rst(
                     reset_index,
                     &mut self.register.pc,
-                    &mut self.iommu,
+                    &mut self.iommu.borrow_mut(),
                     &mut self.register.sp,
                 );
 
@@ -1525,8 +1547,21 @@ impl Cpu {
         }
     }
     fn dump_regs(&self) {
+        let mem_byte_0 = self.iommu.borrow_mut().read_byte(self.register.pc);
+        let mem_byte_1 = self
+            .iommu
+            .borrow_mut()
+            .read_byte(self.register.pc.wrapping_add(1));
+        let mem_byte_2 = self
+            .iommu
+            .borrow_mut()
+            .read_byte(self.register.pc.wrapping_add(2));
+        let mem_byte_3 = self
+            .iommu
+            .borrow_mut()
+            .read_byte(self.register.pc.wrapping_add(3));
         println!(
-            "A = {}\nFlags:\nZ = {}, N = {}, H = {}, C = {}\nBC = {}\nDE = {}\nHL = {}\nPC = {:#02x?}\nSP = {:#02x?}",
+            "A: {:#04x?} F: [z:{}, n:{}, h:{}, c:{}], BC: {:#06x?}, DE: {:#06x?}, HL: {:#06x?}, PC: {:#06x?}, SP: {:#06x?}, PCMEM: {:#04x?}, {:#04x?}, {:#04x?}, {:#04x?}",
             self.register.a,
             self.register.flag.z as u8,
             self.register.flag.n as u8,
@@ -1536,36 +1571,11 @@ impl Cpu {
             self.register.get_de(),
             self.register.get_hl(),
             self.register.pc,
-            self.register.sp
+            self.register.sp,
+            mem_byte_0,
+            mem_byte_1,
+            mem_byte_2,
+            mem_byte_3
         );
-    }
-}
-
-#[cfg(test)]
-mod ut_blargg_tests {
-
-    use super::*;
-    use std::fs::File;
-    use std::io::prelude::*;
-    use std::path::Path;
-
-    #[test]
-    fn cpu_08_misc_instruction_behavior_test() {
-        let rom_path = Path::new("roms/08-misc instrs.gb");
-
-        let mut rom_file = match File::open(&rom_path) {
-            Err(why) => panic!("couldn't open {}: {}", rom_path.display(), why),
-            Ok(file) => file,
-        };
-
-        let mut program: Vec<u8> = Vec::new();
-        rom_file.read_to_end(&mut program).unwrap();
-
-        let mut cpu = Cpu::new();
-        cpu.load_program(&program);
-
-        for _ in 0..program.len() {
-            cpu.process();
-        }
     }
 }
