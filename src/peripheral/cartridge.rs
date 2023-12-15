@@ -94,15 +94,18 @@ impl CartridgeController {
             CartridgeType::Mbc1 => "MBC1",
             CartridgeType::Mbc2 => "MBC2",
         };
-        println!("Cartridge Type: {}", catridge_type);
+        println!("-----------------------------");
+        println!("Cartridge loaded:\x1b[92m Success \x1b[0m");
+        println!(" * Cartridge Type: \x1b[96m{}\x1b[0m", catridge_type);
         println!(
-            "ROM Size: {}, Banks: {}",
+            " * ROM Size: {}, Banks: {}",
             self.rom_size, self.number_of_rom_banks
         );
         println!(
-            "RAM Size: {}, Banks: {}",
+            " * RAM Size: {}, Banks: {}",
             self.ram_size, self.number_of_ram_banks
         );
+        println!("-----------------------------");
     }
 }
 
@@ -276,7 +279,7 @@ impl HardwareAccessible for Cartridge {
             }
 
             _ => panic!(
-                "[CARTRIDGE ERROR][Read] Unsupported address: [0x{:02x}]",
+                "[CARTRIDGE ERROR][Read] Unsupported address: [{:#06x?}]",
                 address
             ),
         }
@@ -300,7 +303,7 @@ impl HardwareAccessible for Cartridge {
             }
 
             _ => panic!(
-                "[CARTRIDGE ERROR][Write] Unsupported address: [0x{:02x}]",
+                "[CARTRIDGE ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
             ),
         }

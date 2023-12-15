@@ -3,9 +3,9 @@ pub struct ControlFlags {
     pub halted: bool,
 }
 
-impl ControlFlags {
-    pub fn new() -> Self {
-        ControlFlags {
+impl Default for ControlFlags {
+    fn default() -> Self {
+        Self {
             ime: true,
             halted: false,
         }
@@ -49,7 +49,7 @@ impl std::convert::From<u8> for FlagsRegister {
         FlagsRegister { z, n, h, c }
     }
 }
-
+#[derive(Default)]
 pub struct Registers {
     pub a: u8,
     pub flag: FlagsRegister,
@@ -68,21 +68,6 @@ pub struct Registers {
 }
 
 impl Registers {
-    pub fn new() -> Self {
-        Registers {
-            a: 0,
-            flag: FlagsRegister::default(),
-            b: 0,
-            c: 0,
-            d: 0,
-            e: 0,
-            h: 0,
-            l: 0,
-            pc: 0,
-            sp: 0,
-        }
-    }
-
     pub fn get_bc(&self) -> u16 {
         (self.b as u16).rotate_left(8) | (self.c as u16)
     }
@@ -190,7 +175,7 @@ mod uint_test {
 
     #[test]
     fn register_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.b = 0x33;
         register.c = 0x34;
@@ -213,7 +198,7 @@ mod uint_test {
     }
     #[test]
     fn af_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.a = 0x01;
         assert_eq!(0x100, register.get_af());
@@ -233,12 +218,12 @@ mod uint_test {
 
     #[test]
     fn get_reg_value_and_address_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         let exp_reg_val: [u8; 7] = [10, 11, 12, 13, 14, 15, 16];
 
         //SET REGS
         for opcode in exp_reg_val.iter() {
-            let mut reg =
+            let reg =
                 register.get_reg_address_from_opcode_range(&[10, 11, 12, 13, 14, 15, 16], *opcode);
             *reg = *opcode;
         }

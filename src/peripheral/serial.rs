@@ -11,7 +11,7 @@ use crate::constants::gb_memory_map::address;
 pub struct SerialDataTransfer {
     data: u8,
     control: u8,
-    test_out_data: Vec<char>,
+    pub test_out_data: Vec<char>,
     interrupt_req: bool,
 }
 
@@ -22,10 +22,6 @@ impl SerialDataTransfer {
             self.interrupt_req = true;
         }
     }
-
-    pub fn get_test_buff(&self) -> &[char] {
-        &self.test_out_data
-    }
 }
 
 impl HardwareAccessible for SerialDataTransfer {
@@ -34,7 +30,7 @@ impl HardwareAccessible for SerialDataTransfer {
             address::SERIAL_DATA_REGISTER => self.data,
             address::SERIAL_CONTROL_REGISTER => self.control,
             _ => panic!(
-                "Read - This address [{:#02x?}] is not for SerialDataTransfer",
+                "[SERIAL ERROR][Read] Unsupported address: [{:#06x?}]",
                 address
             ),
         }
@@ -50,7 +46,7 @@ impl HardwareAccessible for SerialDataTransfer {
                 self.write_data_to_test_buff_when_required(data);
             }
             _ => panic!(
-                "Write - This address [{:#02x?}] is not for SerialDataTransfer",
+                "[SERIAL ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
             ),
         }

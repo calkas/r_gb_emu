@@ -44,7 +44,7 @@ mod ut {
 
     #[test]
     fn ccf_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.z = true;
         register.flag.h = true;
         register.flag.n = true;
@@ -60,7 +60,7 @@ mod ut {
 
     #[test]
     fn scf_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.z = true;
         register.flag.h = true;
         register.flag.n = true;
@@ -76,7 +76,7 @@ mod ut {
 
     #[test]
     fn control_flag_test() {
-        let mut cpu_control = ControlFlags::new();
+        let mut cpu_control = ControlFlags::default();
 
         di(&mut cpu_control);
         assert!(cpu_control.ime == false);

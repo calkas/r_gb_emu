@@ -85,7 +85,10 @@ impl HardwareAccessible for Timer {
             address::TIMER_TIMA_REGISTER => self.tima_counter_register,
             address::TIMER_TMA_REGISTER => self.modulo_register,
             address::TIMER_TAC_REGISTER => TimerControlRegister::into(self.tac_register),
-            _ => panic!("Read - This address [{:#02x?}] is not for Timer", address),
+            _ => panic!(
+                "[TIMER ERROR][Read] Unsupported address: [{:#06x?}]",
+                address
+            ),
         }
     }
 
@@ -95,7 +98,10 @@ impl HardwareAccessible for Timer {
             address::TIMER_TIMA_REGISTER => self.tima_counter_register = data,
             address::TIMER_TMA_REGISTER => self.modulo_register = data,
             address::TIMER_TAC_REGISTER => self.tac_register = TimerControlRegister::from(data),
-            _ => panic!("Write - This address [{:#02x?}] is not for Timer", address),
+            _ => panic!(
+                "[TIMER ERROR][Write] Unsupported address: [{:#06x?}]",
+                address
+            ),
         }
     }
 }

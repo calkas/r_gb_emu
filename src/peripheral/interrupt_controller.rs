@@ -70,10 +70,7 @@ impl HardwareAccessible for InterruptController {
         match address {
             address::INTF_REGISTER => InterruptRegister::into(self.intf),
             address::INTE_REGISTER => InterruptRegister::into(self.inte),
-            _ => panic!(
-                "Read - This address [{:#02x?}] is not for interrupt controller",
-                address
-            ),
+            _ => panic!("[ISR ERROR][Read] Unsupported address: [{:#06x?}]", address),
         }
     }
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
@@ -81,7 +78,7 @@ impl HardwareAccessible for InterruptController {
             address::INTF_REGISTER => self.intf = InterruptRegister::from(data),
             address::INTE_REGISTER => self.inte = InterruptRegister::from(data),
             _ => panic!(
-                "Write - This address [{:#02x?}] is not for interrupt controller",
+                "[ISR ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
             ),
         }

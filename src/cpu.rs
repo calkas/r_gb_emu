@@ -20,10 +20,10 @@ pub struct Cpu {
 impl Cpu {
     pub fn new(iommu: Rc<RefCell<IOMMU>>) -> Self {
         Cpu {
-            register: Registers::new(),
+            register: Registers::default(),
             cycles: 0,
             last_cycles: 0,
-            control: ControlFlags::new(),
+            control: ControlFlags::default(),
             iommu,
         }
     }

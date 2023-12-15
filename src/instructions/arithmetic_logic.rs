@@ -318,7 +318,7 @@ mod ut {
 
     #[test]
     fn add_half_carry_flag_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0x6C;
         register.flag.n = true;
 
@@ -333,7 +333,7 @@ mod ut {
 
     #[test]
     fn add_carry_half_carry_and_zero_flag_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0xFF;
         register.flag.n = true;
 
@@ -348,7 +348,7 @@ mod ut {
 
     #[test]
     fn adc_carry_flag_set_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0x3D;
         register.flag.n = true;
         register.flag.c = true;
@@ -364,7 +364,7 @@ mod ut {
 
     #[test]
     fn add_hl_half_carry_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.b = 0x01;
         register.c = 0x80;
 
@@ -391,7 +391,7 @@ mod ut {
 
     #[test]
     fn add_sp_with_carry_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.sp = 0x81;
 
         register.flag.n = true;
@@ -408,7 +408,7 @@ mod ut {
 
     #[test]
     fn sub_the_same_value_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0x3E;
 
         sub(&mut register.flag, &mut register.a, 0x3E, 0);
@@ -421,7 +421,7 @@ mod ut {
     }
     #[test]
     fn sub_overflow_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 16;
 
         sub(&mut register.flag, &mut register.a, 18, 0);
@@ -435,7 +435,7 @@ mod ut {
 
     #[test]
     fn sbc_carry_flag_set_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 77;
         register.flag.c = true;
 
@@ -450,7 +450,7 @@ mod ut {
 
     #[test]
     fn and_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.c = true;
         register.flag.n = true;
         register.a = 0xFC;
@@ -465,7 +465,7 @@ mod ut {
     }
     #[test]
     fn xor_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.c = true;
         register.flag.n = true;
         register.flag.h = true;
@@ -481,7 +481,7 @@ mod ut {
     }
     #[test]
     fn or_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.c = true;
         register.flag.n = true;
         register.flag.h = true;
@@ -498,7 +498,7 @@ mod ut {
 
     #[test]
     fn cp_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0x3E;
 
         cp(&mut register.flag, &mut register.a, 0x3E);
@@ -512,7 +512,7 @@ mod ut {
 
     #[test]
     fn inc_overflow_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.n = true;
         register.b = 0xFF;
 
@@ -537,7 +537,7 @@ mod ut {
 
     #[test]
     fn inc16_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.b = 0x01;
         register.c = 0x10;
@@ -565,7 +565,7 @@ mod ut {
 
     #[test]
     fn dec_overflow_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.n = true;
         register.b = 0;
 
@@ -590,7 +590,7 @@ mod ut {
 
     #[test]
     fn dec16_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.b = 0x01;
         register.c = 0x10;
@@ -606,7 +606,7 @@ mod ut {
 
     #[test]
     fn daa_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         //Performing decimal addition
         //    85  1000 0101   0x85
@@ -630,7 +630,7 @@ mod ut {
 
     #[test]
     fn cpl_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.a = 0xFF;
 
@@ -645,7 +645,7 @@ mod ut {
 
     #[test]
     fn ld_hl_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.h = 0x01;
         register.l = 0;

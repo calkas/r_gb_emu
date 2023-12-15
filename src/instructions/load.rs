@@ -75,7 +75,7 @@ mod ut {
 
     #[test]
     fn ld_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.b = 55;
         register.c = 69;
 
@@ -88,7 +88,7 @@ mod ut {
 
     #[test]
     fn ld16_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.b = 0x45;
         register.c = 0x33;
 
@@ -102,7 +102,7 @@ mod ut {
     }
     #[test]
     fn ldi_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.h = 0x30;
         register.l = 0x20;
@@ -122,7 +122,7 @@ mod ut {
     }
     #[test]
     fn ldd_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         register.h = 0x30;
         register.l = 0x20;
@@ -143,7 +143,7 @@ mod ut {
 
     #[test]
     fn stack_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
         let mut iommu = IOMMU::new(cartridge.clone());
         register.sp = *address::HIGH_RAM.end();

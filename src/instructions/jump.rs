@@ -53,7 +53,7 @@ mod ut {
 
     #[test]
     fn jump_to_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.pc = 0xAAAA;
 
         jump_to(&mut register.pc, 0xBBCC);
@@ -63,7 +63,7 @@ mod ut {
 
     #[test]
     fn relative_jump_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.pc = 1234;
 
         relative_jump(&mut register.pc, -100);
@@ -75,7 +75,7 @@ mod ut {
 
     #[test]
     fn call_and_return_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         const PROGRAM_COUNTER_POINT_TO_CALL_INSTR: u16 = 1234;
         register.pc = PROGRAM_COUNTER_POINT_TO_CALL_INSTR;
         register.sp = 0xFFFE;
@@ -92,7 +92,7 @@ mod ut {
 
     #[test]
     fn rst_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.pc = 0xAAAA;
         register.sp = 0xFFFE;
 

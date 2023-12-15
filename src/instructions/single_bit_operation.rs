@@ -44,7 +44,7 @@ mod ut {
 
     #[test]
     fn bit_check_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.flag.n = true;
         register.flag.h = false;
 
@@ -61,7 +61,7 @@ mod ut {
     }
     #[test]
     fn bit_set_reset_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
 
         set(&mut register.a, 3);
         assert_eq!(0x08, register.a);

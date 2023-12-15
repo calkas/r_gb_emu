@@ -22,7 +22,7 @@ fn cpu_instruction_behavior_test() {
         sum_of_cycles += cpu.process();
     }
 
-    for i in iommu.borrow_mut().serial.get_test_buff() {
+    for i in iommu.borrow_mut().serial.test_out_data.iter() {
         print!("{}", *i)
     }
 }

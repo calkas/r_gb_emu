@@ -138,7 +138,7 @@ mod ut {
 
     #[test]
     fn rlca_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0xF2;
         register.flag.z = true;
         register.flag.n = true;
@@ -155,7 +155,7 @@ mod ut {
 
     #[test]
     fn rla_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0xB5;
         register.flag.z = true;
         register.flag.n = true;
@@ -173,7 +173,7 @@ mod ut {
 
     #[test]
     fn rrca_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0xF2;
         register.flag.z = true;
         register.flag.n = true;
@@ -191,7 +191,7 @@ mod ut {
 
     #[test]
     fn rra_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0x6A;
         register.flag.z = true;
         register.flag.n = true;
@@ -209,7 +209,7 @@ mod ut {
 
     #[test]
     fn sla_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0x99;
         register.flag.n = true;
         register.flag.h = true;
@@ -225,7 +225,7 @@ mod ut {
 
     #[test]
     fn sra_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0xC1;
         register.flag.n = true;
         register.flag.h = true;
@@ -241,7 +241,7 @@ mod ut {
 
     #[test]
     fn swap_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0xF1;
 
         swap(&mut register.flag, &mut register.a);
@@ -254,7 +254,7 @@ mod ut {
     }
     #[test]
     fn srl_test() {
-        let mut register = Registers::new();
+        let mut register = Registers::default();
         register.a = 0xC1;
         register.flag.n = true;
         register.flag.h = true;
