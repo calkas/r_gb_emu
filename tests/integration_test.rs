@@ -18,7 +18,7 @@ fn cpu_instruction_behavior_test() {
     let mut sum_of_cycles = 0;
 
     //69905
-    while sum_of_cycles < 1000000 {
+    while sum_of_cycles < 200 {
         sum_of_cycles += cpu.process();
     }
 

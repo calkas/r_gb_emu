@@ -87,26 +87,6 @@ impl CartridgeController {
         let bank_size: usize = 0x2000; // 8 KiB
         self.ram_size = bank_size * self.number_of_ram_banks as usize;
     }
-
-    pub fn print_status_data(&self) {
-        let catridge_type = match self.cart_type {
-            CartridgeType::RomOnly => "Rom only",
-            CartridgeType::Mbc1 => "MBC1",
-            CartridgeType::Mbc2 => "MBC2",
-        };
-        println!("-----------------------------");
-        println!("Cartridge loaded:\x1b[92m Success \x1b[0m");
-        println!(" * Cartridge Type: \x1b[96m{}\x1b[0m", catridge_type);
-        println!(
-            " * ROM Size: {}, Banks: {}",
-            self.rom_size, self.number_of_rom_banks
-        );
-        println!(
-            " * RAM Size: {}, Banks: {}",
-            self.ram_size, self.number_of_ram_banks
-        );
-        println!("-----------------------------");
-    }
 }
 
 pub struct Cartridge {
@@ -156,7 +136,45 @@ impl Cartridge {
             self.ram.reserve(self.controller.ram_size);
         }
 
-        self.controller.print_status_data();
+        self.show_status(&path);
+    }
+
+    fn show_status(&mut self, cartridge_path: &Path) {
+        let catridge_type = match self.controller.cart_type {
+            CartridgeType::RomOnly => "Rom only",
+            CartridgeType::Mbc1 => "MBC1",
+            CartridgeType::Mbc2 => "MBC2",
+        };
+        println!("-----------------------------");
+        println!("Cartridge: {}", cartridge_path.display());
+        println!("Cartridge loaded:\x1b[92m Success \x1b[0m");
+        println!(" * Cartridge Type: \x1b[96m{}\x1b[0m", catridge_type);
+        println!(
+            " * ROM Size: {}, Banks: {}",
+            self.controller.rom_size, self.controller.number_of_rom_banks
+        );
+        println!(
+            " * RAM Size: {}, Banks: {}",
+            self.controller.ram_size, self.controller.number_of_ram_banks
+        );
+
+        if self.is_checksum_valid() {
+            println!(" * Checksum:\x1b[92m Success\x1b[0m");
+        } else {
+            println!(" * Checksum: Error");
+        }
+
+        println!("-----------------------------");
+    }
+
+    fn is_checksum_valid(&mut self) -> bool {
+        let mut calc_checksum: u8 = 0;
+        for address in 0x0134..0x014D {
+            calc_checksum = calc_checksum
+                .wrapping_sub(self.rom[address as usize])
+                .wrapping_sub(1);
+        }
+        self.rom[address::cartridge_header::HEADER_CHECKSUM as usize] == calc_checksum
     }
 
     fn ram_bank_enable_request(&mut self, address: u16, data: u8) {

@@ -35,7 +35,8 @@ pub mod gb_memory_map {
         pub const CARTRIDGE_RAM: RangeInclusive<u16> = 0xA000..=0xBFFF;
         pub const WORKING_RAM_BANK_0: RangeInclusive<u16> = 0xC000..=0xCFFF;
         pub const WORKING_RAM_BANK_1_7: RangeInclusive<u16> = 0xD000..=0xDFFF;
-        pub const ECHO_RAM: RangeInclusive<u16> = 0xE000..=0xFDFF;
+        pub const ECHO_RAM_BANK_0: RangeInclusive<u16> = 0xE000..=0xEFFF;
+        pub const ECHO_RAM_BANK_1_7: RangeInclusive<u16> = 0xF000..=0xFDFF;
         pub const OAM: RangeInclusive<u16> = 0xFE00..=0xFE9F;
         pub const NOT_USABLE: RangeInclusive<u16> = 0xFEA0..=0xFEFF;
 
@@ -52,6 +53,7 @@ pub mod gb_memory_map {
             pub const CARTRIDGE_TYPE: u16 = 0x0147;
             pub const ROM_SIZE: u16 = 0x0148;
             pub const RAM_SIZE: u16 = 0x0149;
+            pub const HEADER_CHECKSUM: u16 = 0x014D;
         }
         //IO_HARDWARE_REGISTERS
         pub const JOYPAD_INPUT_REGISTER: u16 = 0xFF00;
@@ -66,10 +68,10 @@ pub mod gb_memory_map {
     }
 
     pub mod memory {
-        pub const DEFAULT_INIT_VALUE: u8 = 0xFF;
+        pub const DEFAULT_INIT_VALUE: u8 = 0;
         pub const HIGH_RAM_SIZE: usize = 0x7F;
-        pub const WRAM_SIZE: usize = 0x2000; // Temporary solution when CGB will be support 
-        pub const WRAM_ADDRESS_MASK: usize = 0x1FFF;
+        pub const WRAM_SIZE: usize = 0x2000; // Temporary solution when CGB will be support
+        pub const WRAM_ADDRESS_MASK: usize = 0x0FFF;
     }
 
     /// ISR_ADDRESS

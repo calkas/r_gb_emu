@@ -40,11 +40,18 @@ impl IOMMU {
                     .read_byte_from_hardware_register(rom_bank_n_address)
             }
 
-            wram_address
-                if address::WORKING_RAM_BANK_0.contains(&wram_address)
-                    | address::WORKING_RAM_BANK_1_7.contains(&wram_address) =>
+            wram_address_bank_0
+                if address::WORKING_RAM_BANK_0.contains(&wram_address_bank_0)
+                    | address::ECHO_RAM_BANK_0.contains(&wram_address_bank_0) =>
             {
-                self.wram[wram_address as usize & memory::WRAM_ADDRESS_MASK]
+                self.wram[wram_address_bank_0 as usize & memory::WRAM_ADDRESS_MASK]
+            }
+
+            wram_address_bank_1_7
+                if address::WORKING_RAM_BANK_1_7.contains(&wram_address_bank_1_7)
+                    | address::ECHO_RAM_BANK_1_7.contains(&wram_address_bank_1_7) =>
+            {
+                self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK]
             }
 
             not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {
@@ -72,7 +79,7 @@ impl IOMMU {
                 .read_byte_from_hardware_register(address),
 
             _ => {
-                //println!("Reading from unsupported addres: {:#06x?}", address);
+                println!("Reading from unsupported addres: {:#06x?}", address);
                 memory::DEFAULT_INIT_VALUE
             }
         }
@@ -92,11 +99,18 @@ impl IOMMU {
                     .write_byte_to_hardware_register(rom_bank_n_address, data);
             }
 
-            wram_address
-                if address::WORKING_RAM_BANK_0.contains(&wram_address)
-                    | address::WORKING_RAM_BANK_1_7.contains(&wram_address) =>
+            wram_address_bank_0
+                if address::WORKING_RAM_BANK_0.contains(&wram_address_bank_0)
+                    | address::ECHO_RAM_BANK_0.contains(&wram_address_bank_0) =>
             {
-                self.wram[wram_address as usize & memory::WRAM_ADDRESS_MASK] = data;
+                self.wram[wram_address_bank_0 as usize & memory::WRAM_ADDRESS_MASK] = data;
+            }
+
+            wram_address_bank_1_7
+                if address::WORKING_RAM_BANK_1_7.contains(&wram_address_bank_1_7)
+                    | address::ECHO_RAM_BANK_1_7.contains(&wram_address_bank_1_7) =>
+            {
+                self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK] = data;
             }
 
             not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {}
@@ -120,10 +134,10 @@ impl IOMMU {
                 .write_byte_to_hardware_register(address, data),
 
             _ => {
-                // println!(
-                //     "Writing to unsupported addres: {:#06x?} data = {:#06x?}",
-                //     address, data
-                // );
+                println!(
+                    "Writing to unsupported addres: {:#06x?} data = {:#06x?}",
+                    address, data
+                );
             }
         }
     }
