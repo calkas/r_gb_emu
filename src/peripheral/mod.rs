@@ -1,5 +1,6 @@
 pub mod cartridge;
 pub mod interrupt_controller;
+pub mod joypad;
 pub mod serial;
 pub mod timer;
 

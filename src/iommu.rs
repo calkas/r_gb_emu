@@ -1,7 +1,7 @@
 use super::constants::gb_memory_map::{address, memory};
 use crate::peripheral::{
-    cartridge::Cartridge, interrupt_controller::InterruptController, serial::SerialDataTransfer,
-    timer::Timer, HardwareAccessible, IoWorkingCycle,
+    cartridge::Cartridge, interrupt_controller::InterruptController, joypad::JoypadInput,
+    serial::SerialDataTransfer, timer::Timer, HardwareAccessible, IoWorkingCycle,
 };
 use std::{cell::RefCell, rc::Rc};
 /// # I/O Memory Management
@@ -13,10 +13,14 @@ pub struct IOMMU {
     isr_controller: InterruptController,
     pub serial: SerialDataTransfer,
     timer: Timer,
+    joypad: Rc<RefCell<JoypadInput>>,
 }
 
 impl IOMMU {
-    pub fn new(cartridge: Rc<RefCell<Cartridge>>) -> Self {
+    pub fn new(
+        cartridge: Rc<RefCell<Cartridge>>,
+        input_controller: Rc<RefCell<JoypadInput>>,
+    ) -> Self {
         IOMMU {
             cartridge_rom: cartridge,
             wram: [memory::DEFAULT_INIT_VALUE; memory::WRAM_SIZE],
@@ -24,6 +28,7 @@ impl IOMMU {
             isr_controller: InterruptController::default(),
             serial: SerialDataTransfer::default(),
             timer: Timer::default(),
+            joypad: input_controller,
         }
     }
     pub fn read_byte(&self, address: u16) -> u8 {
@@ -65,6 +70,11 @@ impl IOMMU {
                 let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
                 self.hram[adjusted_adr]
             }
+
+            address::JOYPAD_INPUT_REGISTER => self
+                .joypad
+                .borrow_mut()
+                .read_byte_from_hardware_register(address),
 
             serial_address if address::HARDWARE_IO_SERIAL.contains(&serial_address) => {
                 self.serial.read_byte_from_hardware_register(serial_address)
@@ -120,6 +130,11 @@ impl IOMMU {
                 self.hram[adjusted_adr] = data;
             }
 
+            address::JOYPAD_INPUT_REGISTER => self
+                .joypad
+                .borrow_mut()
+                .write_byte_to_hardware_register(address, data),
+
             serial_address if address::HARDWARE_IO_SERIAL.contains(&serial_address) => self
                 .serial
                 .write_byte_to_hardware_register(serial_address, data),
@@ -153,11 +168,12 @@ impl IOMMU {
         self.timer.reset_interrupt();
 
         //  * 3 Serial Link
-        self.serial.next(cycles);
         self.isr_controller.intf.serial_link = self.serial.is_interrupt();
         self.serial.reset_interrupt();
 
         //  * 4 Joypad
+        self.isr_controller.intf.joypad = self.joypad.borrow_mut().is_interrupt();
+        self.joypad.borrow_mut().reset_interrupt();
     }
 
     pub fn read_word(&mut self, address: u16) -> u16 {
