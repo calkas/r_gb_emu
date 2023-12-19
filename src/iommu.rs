@@ -71,7 +71,7 @@ impl IOMMU {
                 self.hram[adjusted_adr]
             }
 
-            address::JOYPAD_INPUT_REGISTER => self
+            address::io_hardware_register::JOYPAD_INPUT => self
                 .joypad
                 .borrow_mut()
                 .read_byte_from_hardware_register(address),
@@ -130,7 +130,7 @@ impl IOMMU {
                 self.hram[adjusted_adr] = data;
             }
 
-            address::JOYPAD_INPUT_REGISTER => self
+            address::io_hardware_register::JOYPAD_INPUT => self
                 .joypad
                 .borrow_mut()
                 .write_byte_to_hardware_register(address, data),
@@ -197,7 +197,8 @@ mod ut {
     #[test]
     fn little_endianness_test() {
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
-        let mut iommu = IOMMU::new(cartridge.clone());
+        let joypad = Rc::new(RefCell::new(JoypadInput::default()));
+        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
 
         iommu.write_byte(*address::HIGH_RAM.start(), 0xCD);
         iommu.write_byte(*address::HIGH_RAM.start() + 1, 0xAB);
@@ -209,7 +210,8 @@ mod ut {
     fn read_write_to_memory_map_test() {
         const EXP_STORED_VALUE: u8 = 0xCD;
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
-        let mut iommu = IOMMU::new(cartridge.clone());
+        let joypad = Rc::new(RefCell::new(JoypadInput::default()));
+        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
 
         // [0xFEA0 - 0xFEFF] Not Usable
         iommu.write_byte(*address::NOT_USABLE.start(), EXP_STORED_VALUE);
@@ -229,9 +231,13 @@ mod ut {
     #[test]
     fn read_write_to_io_register_test() {
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
-        let mut iommu = IOMMU::new(cartridge.clone());
-        iommu.write_byte(address::SERIAL_DATA_REGISTER, 0xAA);
+        let joypad = Rc::new(RefCell::new(JoypadInput::default()));
+        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
+        iommu.write_byte(address::io_hardware_register::SERIAL_DATA, 0xAA);
 
-        assert_eq!(0xAA, iommu.read_byte(address::SERIAL_DATA_REGISTER));
+        assert_eq!(
+            0xAA,
+            iommu.read_byte(address::io_hardware_register::SERIAL_DATA)
+        );
     }
 }

@@ -1,6 +1,13 @@
 use super::{HardwareAccessible, IoWorkingCycle};
-use crate::constants::clock::timer;
 use crate::constants::gb_memory_map::address;
+
+mod timer {
+    pub const DIV_CLOCK_DIV: u32 = 255;
+    pub const TIMA_CLOCK_DIV_0: u32 = 1024;
+    pub const TIMA_CLOCK_DIV_1: u32 = 16;
+    pub const TIMA_CLOCK_DIV_2: u32 = 64;
+    pub const TIMA_CLOCK_DIV_3: u32 = 256;
+}
 
 #[derive(Clone, Copy, Default)]
 struct TimerControlRegister {
@@ -81,10 +88,12 @@ impl Timer {
 impl HardwareAccessible for Timer {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
         match address {
-            address::TIMER_DIV_REGISTER => self.div_counter_register,
-            address::TIMER_TIMA_REGISTER => self.tima_counter_register,
-            address::TIMER_TMA_REGISTER => self.modulo_register,
-            address::TIMER_TAC_REGISTER => TimerControlRegister::into(self.tac_register),
+            address::io_hardware_register::TIMER_DIV => self.div_counter_register,
+            address::io_hardware_register::TIMER_TIMA => self.tima_counter_register,
+            address::io_hardware_register::TIMER_TMA => self.modulo_register,
+            address::io_hardware_register::TIMER_TAC => {
+                TimerControlRegister::into(self.tac_register)
+            }
             _ => panic!(
                 "[TIMER ERROR][Read] Unsupported address: [{:#06x?}]",
                 address
@@ -94,10 +103,12 @@ impl HardwareAccessible for Timer {
 
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
         match address {
-            address::TIMER_DIV_REGISTER => self.div_counter_register = 0,
-            address::TIMER_TIMA_REGISTER => self.tima_counter_register = data,
-            address::TIMER_TMA_REGISTER => self.modulo_register = data,
-            address::TIMER_TAC_REGISTER => self.tac_register = TimerControlRegister::from(data),
+            address::io_hardware_register::TIMER_DIV => self.div_counter_register = 0,
+            address::io_hardware_register::TIMER_TIMA => self.tima_counter_register = data,
+            address::io_hardware_register::TIMER_TMA => self.modulo_register = data,
+            address::io_hardware_register::TIMER_TAC => {
+                self.tac_register = TimerControlRegister::from(data)
+            }
             _ => panic!(
                 "[TIMER ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
@@ -157,7 +168,7 @@ mod ut {
 
         assert_eq!(
             1,
-            timer.read_byte_from_hardware_register(address::TIMER_DIV_REGISTER)
+            timer.read_byte_from_hardware_register(address::io_hardware_register::TIMER_DIV)
         );
 
         // overflow
@@ -172,11 +183,11 @@ mod ut {
         let mut timer = Timer::default();
 
         //Turn on tima counter
-        timer.write_byte_to_hardware_register(address::TIMER_TAC_REGISTER, 4);
+        timer.write_byte_to_hardware_register(address::io_hardware_register::TIMER_TAC, 4);
 
         assert_eq!(
             0xFC,
-            timer.read_byte_from_hardware_register(address::TIMER_TAC_REGISTER)
+            timer.read_byte_from_hardware_register(address::io_hardware_register::TIMER_TAC)
         );
 
         //Default div is 1024
@@ -185,7 +196,7 @@ mod ut {
 
         assert_eq!(
             1,
-            timer.read_byte_from_hardware_register(address::TIMER_TIMA_REGISTER)
+            timer.read_byte_from_hardware_register(address::io_hardware_register::TIMER_TIMA)
         );
 
         // overflow

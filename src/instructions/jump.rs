@@ -48,7 +48,10 @@ pub fn rst(rst_index: usize, program_counter: &mut u16, stack: &mut IOMMU, reg_s
 #[cfg(test)]
 mod ut {
     use super::*;
-    use crate::{cpu_data::Registers, peripheral::cartridge::Cartridge};
+    use crate::{
+        cpu_data::Registers,
+        peripheral::{cartridge::Cartridge, joypad::JoypadInput},
+    };
     use std::{cell::RefCell, rc::Rc};
 
     #[test]
@@ -81,7 +84,8 @@ mod ut {
         register.sp = 0xFFFE;
 
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
-        let mut iommu = IOMMU::new(cartridge.clone());
+        let joypad = Rc::new(RefCell::new(JoypadInput::default()));
+        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
 
         call(&mut register.pc, 500, &mut iommu, &mut register.sp);
         assert_eq!(500, register.pc);
@@ -97,7 +101,8 @@ mod ut {
         register.sp = 0xFFFE;
 
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
-        let mut iommu = IOMMU::new(cartridge.clone());
+        let joypad = Rc::new(RefCell::new(JoypadInput::default()));
+        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
 
         for index in 0..RESET_VECTOR_ADDRESS.len() {
             rst(index, &mut register.pc, &mut iommu, &mut register.sp);

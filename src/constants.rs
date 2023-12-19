@@ -56,13 +56,17 @@ pub mod gb_memory_map {
             pub const HEADER_CHECKSUM: u16 = 0x014D;
         }
         //IO_HARDWARE_REGISTERS
-        pub const JOYPAD_INPUT_REGISTER: u16 = 0xFF00;
-        pub const SERIAL_DATA_REGISTER: u16 = 0xFF01;
-        pub const SERIAL_CONTROL_REGISTER: u16 = 0xFF02;
-        pub const TIMER_DIV_REGISTER: u16 = 0xFF04;
-        pub const TIMER_TIMA_REGISTER: u16 = 0xFF05;
-        pub const TIMER_TMA_REGISTER: u16 = 0xFF06;
-        pub const TIMER_TAC_REGISTER: u16 = 0xFF07;
+        pub mod io_hardware_register {
+            pub const JOYPAD_INPUT: u16 = 0xFF00;
+
+            pub const SERIAL_DATA: u16 = 0xFF01;
+            pub const SERIAL_CONTROL: u16 = 0xFF02;
+
+            pub const TIMER_DIV: u16 = 0xFF04;
+            pub const TIMER_TIMA: u16 = 0xFF05;
+            pub const TIMER_TMA: u16 = 0xFF06;
+            pub const TIMER_TAC: u16 = 0xFF07;
+        }
         pub const INTF_REGISTER: u16 = 0xFF0F;
         pub const INTE_REGISTER: u16 = 0xFFFF;
     }
@@ -93,12 +97,4 @@ pub mod gb_memory_map {
 pub mod clock {
     pub const CPU_CLOCK_FREQUENCY: u32 = 4194304;
     pub const CPU_MAX_CYCLES: u32 = 69905;
-
-    pub mod timer {
-        pub const DIV_CLOCK_DIV: u32 = 255;
-        pub const TIMA_CLOCK_DIV_0: u32 = 1024;
-        pub const TIMA_CLOCK_DIV_1: u32 = 16;
-        pub const TIMA_CLOCK_DIV_2: u32 = 64;
-        pub const TIMA_CLOCK_DIV_3: u32 = 256;
-    }
 }

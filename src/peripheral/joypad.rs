@@ -102,7 +102,7 @@ impl JoypadInput {
 impl HardwareAccessible for JoypadInput {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
         match address {
-            address::JOYPAD_INPUT_REGISTER => self.data_register,
+            address::io_hardware_register::JOYPAD_INPUT => self.data_register,
             _ => panic!(
                 "[JOYPAD ERROR][Read] Unsupported address: [{:#06x?}]",
                 address
@@ -112,7 +112,7 @@ impl HardwareAccessible for JoypadInput {
 
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
         match address {
-            address::JOYPAD_INPUT_REGISTER => self.update(data | 0xC0),
+            address::io_hardware_register::JOYPAD_INPUT => self.update(data | 0xC0),
             _ => panic!(
                 "[JOYPAD ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
@@ -249,16 +249,19 @@ mod ut {
         let mut joypad = JoypadInput::default();
         assert_eq!(
             joypad_state_register::ALL_KEYS_NOT_PRESSED,
-            joypad.read_byte_from_hardware_register(address::JOYPAD_INPUT_REGISTER)
+            joypad.read_byte_from_hardware_register(address::io_hardware_register::JOYPAD_INPUT)
         );
 
         let exp_key_value =
             joypad_state_register::KEY_0 & joypad_state_register::D_PAD_MODE_REQUEST;
-        joypad.write_byte_to_hardware_register(address::JOYPAD_INPUT_REGISTER, exp_key_value);
+        joypad.write_byte_to_hardware_register(
+            address::io_hardware_register::JOYPAD_INPUT,
+            exp_key_value,
+        );
 
         assert_eq!(
             exp_key_value,
-            joypad.read_byte_from_hardware_register(address::JOYPAD_INPUT_REGISTER)
+            joypad.read_byte_from_hardware_register(address::io_hardware_register::JOYPAD_INPUT)
         );
     }
 }

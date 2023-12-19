@@ -28,8 +28,8 @@ impl HardwareAccessible for SerialDataTransfer {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
         println!("[Serial][Read] address = {:#06x?}", address);
         match address {
-            address::SERIAL_DATA_REGISTER => self.data,
-            address::SERIAL_CONTROL_REGISTER => self.control,
+            address::io_hardware_register::SERIAL_DATA => self.data,
+            address::io_hardware_register::SERIAL_CONTROL => self.control,
             _ => panic!(
                 "[SERIAL ERROR][Read] Unsupported address: [{:#06x?}]",
                 address
@@ -43,10 +43,10 @@ impl HardwareAccessible for SerialDataTransfer {
             address, data
         );
         match address {
-            address::SERIAL_DATA_REGISTER => {
+            address::io_hardware_register::SERIAL_DATA => {
                 self.data = data;
             }
-            address::SERIAL_CONTROL_REGISTER => {
+            address::io_hardware_register::SERIAL_CONTROL => {
                 self.control = data;
                 self.write_data_to_test_buff_when_required(data);
             }
@@ -79,13 +79,19 @@ mod ut {
         let exp_word: [char; 6] = ['S', 'E', 'R', 'I', 'A', 'L'];
 
         for e in exp_word {
-            serial.write_byte_to_hardware_register(address::SERIAL_DATA_REGISTER, e as u8);
+            serial.write_byte_to_hardware_register(
+                address::io_hardware_register::SERIAL_DATA,
+                e as u8,
+            );
             assert_eq!(
                 e as u8,
-                serial.read_byte_from_hardware_register(address::SERIAL_DATA_REGISTER)
+                serial.read_byte_from_hardware_register(address::io_hardware_register::SERIAL_DATA)
             );
 
-            serial.write_byte_to_hardware_register(address::SERIAL_CONTROL_REGISTER, 0x81);
+            serial.write_byte_to_hardware_register(
+                address::io_hardware_register::SERIAL_CONTROL,
+                0x81,
+            );
         }
 
         assert_eq!(exp_word.len(), serial.test_out_data.len());
