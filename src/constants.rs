@@ -96,5 +96,5 @@ pub mod gb_memory_map {
 
 pub mod clock {
     pub const CPU_CLOCK_FREQUENCY: u32 = 4194304;
-    pub const CPU_MAX_CYCLES: u32 = 69905;
+    pub const CYCLE_SPEED: u32 = CPU_CLOCK_FREQUENCY / 4; // 1_048_576 = 1MHz
 }

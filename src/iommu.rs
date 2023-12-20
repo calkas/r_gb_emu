@@ -64,7 +64,6 @@ impl IOMMU {
             }
 
             0xFF44 => 0x90, //Hardcode LCD
-            0xFF4C..=0xFF7F => panic!("[IMMU ERROR][READ]: CGB not implemented"),
 
             hram_address if address::HIGH_RAM.contains(&hram_address) => {
                 let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
