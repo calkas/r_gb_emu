@@ -11,6 +11,7 @@ A Gameboy emulator 🎮
 - [DMG-01: How to Emulate a Game Boy](https://rylev.github.io/DMG-01/public/book/introduction.html)
 - [8080 Programmers Manual](https://altairclone.com/downloads/manuals/8080%20Programmers%20Manual.pdf)
 
+- [Everything You Always Wanted To Know About GAMEBOY](https://www.devrs.com/gb/files/gbspec.txt)
 - [Study of the techniques for emulation 
 programming](http://www.codeslinger.co.uk/files/emu.pdf)
 
