@@ -42,6 +42,7 @@ pub mod gb_memory_map {
 
         pub const HARDWARE_IO_SERIAL: RangeInclusive<u16> = 0xFF01..=0xFF02;
         pub const HARDWARE_IO_TIMER: RangeInclusive<u16> = 0xFF04..=0xFF07;
+        pub const HARDWARE_IO_GRAPHICS: RangeInclusive<u16> = 0xFF40..=0xFF4B;
 
         //pub const HARDWARE_IO_REGISTERS_1: RangeInclusive<u16> = 0xFF00..=0xFF0E;
         //pub const HARDWARE_IO_REGISTERS_2: RangeInclusive<u16> = 0xFF10..=0xFF7F;
@@ -66,6 +67,19 @@ pub mod gb_memory_map {
             pub const TIMER_TIMA: u16 = 0xFF05;
             pub const TIMER_TMA: u16 = 0xFF06;
             pub const TIMER_TAC: u16 = 0xFF07;
+
+            pub const LCD_CONTROL: u16 = 0xFF40;
+            pub const LCD_STATUS: u16 = 0xFF41;
+            pub const SCY: u16 = 0xFF42; // Viewport Y position
+            pub const SCX: u16 = 0xFF43; // Viewport X position
+            pub const LY: u16 = 0xFF44; // LCD Y coordinate
+            pub const LYC: u16 = 0xFF45; // LY compare
+            pub const OAM_DMA: u16 = 0xFF46; // OAM DMA source address & start
+            pub const BGP: u16 = 0xFF47; // BG palette data
+            pub const OBP0: u16 = 0xFF48; // OBJ palette 0 data
+            pub const OBP1: u16 = 0xFF49; // OBJ palette 1 data
+            pub const WY: u16 = 0xFF4A; // Window Y position
+            pub const WX: u16 = 0xFF4B; // Window X position plus 7
         }
         pub const INTF_REGISTER: u16 = 0xFF0F;
         pub const INTE_REGISTER: u16 = 0xFFFF;
