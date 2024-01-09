@@ -12,7 +12,7 @@ pub struct SerialDataTransfer {
     data: u8,
     control: u8,
     pub test_out_data: Vec<char>,
-    interrupt_req: bool,
+    pub interrupt_req: bool,
 }
 
 impl SerialDataTransfer {
@@ -58,17 +58,6 @@ impl HardwareAccessible for SerialDataTransfer {
     }
 }
 
-impl IoWorkingCycle for SerialDataTransfer {
-    fn is_interrupt(&self) -> bool {
-        self.interrupt_req
-    }
-
-    fn reset_interrupt(&mut self) {
-        self.interrupt_req = false;
-    }
-
-    fn next(&mut self, _cycle: u32) {}
-}
 #[cfg(test)]
 mod ut {
     use super::*;

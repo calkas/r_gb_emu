@@ -117,15 +117,7 @@ impl HardwareAccessible for PictureProcessingUnit {
 }
 
 impl IoWorkingCycle for PictureProcessingUnit {
-    fn is_interrupt(&self) -> bool {
-        todo!()
-    }
-
-    fn reset_interrupt(&mut self) {
-        todo!()
-    }
-
-    fn next(&mut self, cycles: u32) {
+    fn next_to(&mut self, cycles: u32) {
         todo!()
     }
 }

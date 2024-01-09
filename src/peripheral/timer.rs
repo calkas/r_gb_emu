@@ -54,7 +54,7 @@ pub struct Timer {
     tima_counter_register: u8,          // TIMA
     modulo_register: u8,                // TMA
     tac_register: TimerControlRegister, // TAC
-    interrupt_req: bool,
+    pub interrupt_req: bool,
     internal_div_counter: u32,
     internal_tima_counter: u32,
 }
@@ -118,15 +118,7 @@ impl HardwareAccessible for Timer {
 }
 
 impl IoWorkingCycle for Timer {
-    fn is_interrupt(&self) -> bool {
-        self.interrupt_req
-    }
-
-    fn reset_interrupt(&mut self) {
-        self.interrupt_req = false
-    }
-
-    fn next(&mut self, cycle: u32) {
+    fn next_to(&mut self, cycle: u32) {
         self.div_counter_update(cycle);
 
         if self.tac_register.clock_enable {
@@ -162,7 +154,7 @@ mod ut {
     fn div_counter_test() {
         let mut timer = Timer::default();
         // the tima is not enable
-        timer.next(256);
+        timer.next_to(256);
         assert_eq!(1, timer.div_counter_register);
         assert_eq!(0, timer.tima_counter_register);
 
@@ -173,7 +165,7 @@ mod ut {
 
         // overflow
         for _ in 0..255 {
-            timer.next(256);
+            timer.next_to(256);
         }
         assert_eq!(0, timer.div_counter_register);
     }
@@ -191,7 +183,7 @@ mod ut {
         );
 
         //Default div is 1024
-        timer.next(1024);
+        timer.next_to(1024);
         assert_eq!(1, timer.tima_counter_register);
 
         assert_eq!(
@@ -201,9 +193,9 @@ mod ut {
 
         // overflow
         for _ in 0..255 {
-            timer.next(1024);
+            timer.next_to(1024);
         }
         assert_eq!(0, timer.tima_counter_register);
-        assert!(timer.is_interrupt() == true);
+        assert!(timer.interrupt_req == true);
     }
 }

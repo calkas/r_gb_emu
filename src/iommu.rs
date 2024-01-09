@@ -162,17 +162,17 @@ impl IOMMU {
         //  * 1 LCD
 
         //  * 2 Timer
-        self.timer.next(cycles);
-        self.isr_controller.intf.timer = self.timer.is_interrupt();
-        self.timer.reset_interrupt();
+        self.timer.next_to(cycles);
+        self.isr_controller.intf.timer = self.timer.interrupt_req;
+        self.timer.interrupt_req = false;
 
         //  * 3 Serial Link
-        self.isr_controller.intf.serial_link = self.serial.is_interrupt();
-        self.serial.reset_interrupt();
+        self.isr_controller.intf.serial_link = self.serial.interrupt_req;
+        self.serial.interrupt_req = false;
 
         //  * 4 Joypad
-        self.isr_controller.intf.joypad = self.joypad.borrow_mut().is_interrupt();
-        self.joypad.borrow_mut().reset_interrupt();
+        self.isr_controller.intf.joypad = self.joypad.borrow_mut().interrupt_req;
+        self.joypad.borrow_mut().interrupt_req = false;
     }
 
     pub fn read_word(&mut self, address: u16) -> u16 {

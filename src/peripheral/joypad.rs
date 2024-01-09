@@ -24,7 +24,7 @@ pub enum GameBoyKeys {
 }
 pub struct JoypadInput {
     data_register: u8,
-    interrupt_req: bool,
+    pub interrupt_req: bool,
 }
 
 impl JoypadInput {
@@ -120,19 +120,6 @@ impl HardwareAccessible for JoypadInput {
         }
     }
 }
-
-impl IoWorkingCycle for JoypadInput {
-    fn is_interrupt(&self) -> bool {
-        self.interrupt_req
-    }
-
-    fn reset_interrupt(&mut self) {
-        self.interrupt_req = false;
-    }
-
-    fn next(&mut self, _cycles: u32) {}
-}
-
 #[cfg(test)]
 mod ut {
     use super::*;
@@ -193,7 +180,7 @@ mod ut {
         assert!(joypad.interrupt_req == true);
         assert_eq!(0xDE, joypad.data_register);
 
-        joypad.reset_interrupt();
+        joypad.interrupt_req = false;
 
         // Press A again - should nothing happen
         joypad.key_pressed(GameBoyKeys::A);
@@ -226,13 +213,13 @@ mod ut {
         assert!(joypad.interrupt_req == true);
         assert_eq!(0xEB, joypad.data_register);
 
-        joypad.reset_interrupt();
+        joypad.interrupt_req = false;
 
         // Press Up again - should be interrupt
         joypad.key_pressed(GameBoyKeys::Up);
         assert!(joypad.interrupt_req == true);
 
-        joypad.reset_interrupt();
+        joypad.interrupt_req = false;
 
         // Press Up release
         joypad.key_released(GameBoyKeys::Up);
