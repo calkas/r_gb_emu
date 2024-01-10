@@ -50,7 +50,7 @@ mod ut {
     use super::*;
     use crate::{
         cpu_data::Registers,
-        peripheral::{cartridge::Cartridge, joypad::JoypadInput},
+        peripheral::{cartridge::Cartridge, joypad::JoypadInput, ppu::PictureProcessingUnit},
     };
     use std::{cell::RefCell, rc::Rc};
 
@@ -85,7 +85,8 @@ mod ut {
 
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
         let joypad = Rc::new(RefCell::new(JoypadInput::default()));
-        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
+        let ppu = Rc::new(RefCell::new(PictureProcessingUnit::new()));
+        let mut iommu = IOMMU::new(cartridge.clone(), ppu.clone(), joypad.clone());
 
         call(&mut register.pc, 500, &mut iommu, &mut register.sp);
         assert_eq!(500, register.pc);
@@ -102,7 +103,8 @@ mod ut {
 
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
         let joypad = Rc::new(RefCell::new(JoypadInput::default()));
-        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
+        let ppu = Rc::new(RefCell::new(PictureProcessingUnit::new()));
+        let mut iommu = IOMMU::new(cartridge.clone(), ppu.clone(), joypad.clone());
 
         for index in 0..RESET_VECTOR_ADDRESS.len() {
             rst(index, &mut register.pc, &mut iommu, &mut register.sp);

@@ -1,7 +1,8 @@
 use super::constants::gb_memory_map::{address, memory};
 use crate::peripheral::{
     cartridge::Cartridge, interrupt_controller::InterruptController, joypad::JoypadInput,
-    serial::SerialDataTransfer, timer::Timer, HardwareAccessible, IoWorkingCycle,
+    ppu::PictureProcessingUnit, serial::SerialDataTransfer, timer::Timer, HardwareAccessible,
+    IoWorkingCycle,
 };
 use std::{cell::RefCell, rc::Rc};
 /// # I/O Memory Management
@@ -13,12 +14,14 @@ pub struct IOMMU {
     isr_controller: InterruptController,
     pub serial: SerialDataTransfer,
     timer: Timer,
+    ppu: Rc<RefCell<PictureProcessingUnit>>,
     joypad: Rc<RefCell<JoypadInput>>,
 }
 
 impl IOMMU {
     pub fn new(
         cartridge: Rc<RefCell<Cartridge>>,
+        ppu: Rc<RefCell<PictureProcessingUnit>>,
         input_controller: Rc<RefCell<JoypadInput>>,
     ) -> Self {
         IOMMU {
@@ -28,6 +31,7 @@ impl IOMMU {
             isr_controller: InterruptController::default(),
             serial: SerialDataTransfer::default(),
             timer: Timer::default(),
+            ppu,
             joypad: input_controller,
         }
     }
@@ -207,8 +211,9 @@ mod ut {
     #[test]
     fn little_endianness_test() {
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let ppu = Rc::new(RefCell::new(PictureProcessingUnit::new()));
         let joypad = Rc::new(RefCell::new(JoypadInput::default()));
-        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
+        let mut iommu = IOMMU::new(cartridge.clone(), ppu.clone(), joypad.clone());
 
         iommu.write_byte(*address::HIGH_RAM.start(), 0xCD);
         iommu.write_byte(*address::HIGH_RAM.start() + 1, 0xAB);
@@ -220,8 +225,9 @@ mod ut {
     fn read_write_to_memory_map_test() {
         const EXP_STORED_VALUE: u8 = 0xCD;
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let ppu = Rc::new(RefCell::new(PictureProcessingUnit::new()));
         let joypad = Rc::new(RefCell::new(JoypadInput::default()));
-        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
+        let mut iommu = IOMMU::new(cartridge.clone(), ppu.clone(), joypad.clone());
 
         // [0xFEA0 - 0xFEFF] Not Usable
         iommu.write_byte(*address::NOT_USABLE.start(), EXP_STORED_VALUE);
@@ -241,8 +247,9 @@ mod ut {
     #[test]
     fn read_write_to_io_register_test() {
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let ppu = Rc::new(RefCell::new(PictureProcessingUnit::new()));
         let joypad = Rc::new(RefCell::new(JoypadInput::default()));
-        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
+        let mut iommu = IOMMU::new(cartridge.clone(), ppu.clone(), joypad.clone());
         iommu.write_byte(address::io_hardware_register::SERIAL_DATA, 0xAA);
 
         assert_eq!(

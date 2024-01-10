@@ -71,6 +71,7 @@ mod ut {
     use super::*;
     use crate::constants::gb_memory_map::address;
     use crate::peripheral::joypad::JoypadInput;
+    use crate::peripheral::ppu::PictureProcessingUnit;
     use crate::{cpu_data::Registers, peripheral::cartridge::Cartridge};
     use std::{cell::RefCell, rc::Rc};
 
@@ -146,8 +147,9 @@ mod ut {
     fn stack_test() {
         let mut register = Registers::default();
         let cartridge = Rc::new(RefCell::new(Cartridge::default()));
+        let ppu = Rc::new(RefCell::new(PictureProcessingUnit::new()));
         let joypad = Rc::new(RefCell::new(JoypadInput::default()));
-        let mut iommu = IOMMU::new(cartridge.clone(), joypad.clone());
+        let mut iommu = IOMMU::new(cartridge.clone(), ppu.clone(), joypad.clone());
         register.sp = *address::HIGH_RAM.end();
 
         let mut exp_sp_value = register.sp - 2;
