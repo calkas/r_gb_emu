@@ -49,6 +49,11 @@ impl IOMMU {
                     .read_byte_from_hardware_register(rom_bank_n_address)
             }
 
+            vram_address if address::VIDEO_RAM.contains(&vram_address) => self
+                .ppu
+                .borrow_mut()
+                .read_byte_from_hardware_register(vram_address),
+
             wram_address_bank_0
                 if address::WORKING_RAM_BANK_0.contains(&wram_address_bank_0)
                     | address::ECHO_RAM_BANK_0.contains(&wram_address_bank_0) =>
@@ -63,11 +68,14 @@ impl IOMMU {
                 self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK]
             }
 
+            voam_address if address::OAM.contains(&voam_address) => self
+                .ppu
+                .borrow_mut()
+                .read_byte_from_hardware_register(voam_address),
+
             not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {
                 memory::DEFAULT_INIT_VALUE
             }
-
-            0xFF44 => 0x90, //Hardcode LCD
 
             hram_address if address::HIGH_RAM.contains(&hram_address) => {
                 let adjusted_adr = (hram_address - address::HIGH_RAM.start()) as usize;
@@ -86,6 +94,11 @@ impl IOMMU {
             timer_address if address::HARDWARE_IO_TIMER.contains(&timer_address) => {
                 self.timer.read_byte_from_hardware_register(timer_address)
             }
+
+            graphics_address if address::HARDWARE_IO_GRAPHICS.contains(&graphics_address) => self
+                .ppu
+                .borrow_mut()
+                .read_byte_from_hardware_register(graphics_address),
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
@@ -112,6 +125,11 @@ impl IOMMU {
                     .write_byte_to_hardware_register(rom_bank_n_address, data);
             }
 
+            vram_address if address::VIDEO_RAM.contains(&vram_address) => self
+                .ppu
+                .borrow_mut()
+                .write_byte_to_hardware_register(vram_address, data),
+
             wram_address_bank_0
                 if address::WORKING_RAM_BANK_0.contains(&wram_address_bank_0)
                     | address::ECHO_RAM_BANK_0.contains(&wram_address_bank_0) =>
@@ -125,6 +143,11 @@ impl IOMMU {
             {
                 self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK] = data;
             }
+
+            voam_address if address::OAM.contains(&voam_address) => self
+                .ppu
+                .borrow_mut()
+                .write_byte_to_hardware_register(voam_address, data),
 
             not_usable_address if address::NOT_USABLE.contains(&not_usable_address) => {}
 
@@ -148,6 +171,11 @@ impl IOMMU {
             }
 
             address::io_hardware_register::OAM_DMA => self.oam_dma_transfer(data),
+
+            graphics_address if address::HARDWARE_IO_GRAPHICS.contains(&graphics_address) => self
+                .ppu
+                .borrow_mut()
+                .write_byte_to_hardware_register(graphics_address, data),
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
