@@ -1,5 +1,5 @@
 use super::{HardwareAccessible, IoWorkingCycle};
-use crate::constants::gb_memory_map::address;
+use crate::constants::gb_memory_map::{address, memory};
 
 /// # LCD Control Register
 #[derive(Clone, Copy, Default)]
@@ -16,24 +16,15 @@ struct LcdControlRegister {
 
 impl std::convert::From<u8> for LcdControlRegister {
     fn from(value: u8) -> Self {
-        let lcd_enable = (value.rotate_left(7) & 1) == 1;
-        let window_tile_map_area = (value.rotate_left(6) & 1) == 1;
-        let window_enable = (value.rotate_left(5) & 1) == 1;
-        let bg_window_tile_data_area = (value.rotate_left(4) & 1) == 1;
-        let bg_tile_map_area = (value.rotate_left(3) & 1) == 1;
-        let obj_size = (value.rotate_left(2) & 1) == 1;
-        let obj_enable = (value.rotate_left(1) & 1) == 1;
-        let bg_window_enable_priority = (value.rotate_left(0) & 1) == 1;
-
-        LcdControlRegister {
-            lcd_enable,
-            window_tile_map_area,
-            window_enable,
-            bg_window_tile_data_area,
-            bg_tile_map_area,
-            obj_size,
-            obj_enable,
-            bg_window_enable_priority,
+        Self {
+            lcd_enable: (value.rotate_left(7) & 1) == 1,
+            window_tile_map_area: (value.rotate_left(6) & 1) == 1,
+            window_enable: (value.rotate_left(5) & 1) == 1,
+            bg_window_tile_data_area: (value.rotate_left(4) & 1) == 1,
+            bg_tile_map_area: (value.rotate_left(3) & 1) == 1,
+            obj_size: (value.rotate_left(2) & 1) == 1,
+            obj_enable: (value.rotate_left(1) & 1) == 1,
+            bg_window_enable_priority: (value.rotate_left(0) & 1) == 1,
         }
     }
 }
@@ -92,19 +83,13 @@ struct LcdStatusRegister {
 
 impl std::convert::From<u8> for LcdStatusRegister {
     fn from(value: u8) -> Self {
-        let ly_interrupt = (value.rotate_left(6) & 1) == 1;
-        let mode_2_interrupt = (value.rotate_left(5) & 1) == 1;
-        let mode_1_interrupt = (value.rotate_left(4) & 1) == 1;
-        let mode_0_interrupt = (value.rotate_left(3) & 1) == 1;
-        let lyc_flag = (value.rotate_left(2) & 1) == 1;
-        let ppu_mode = value & 0x03;
-        LcdStatusRegister {
-            ly_interrupt,
-            mode_2_interrupt,
-            mode_1_interrupt,
-            mode_0_interrupt,
-            lyc_flag,
-            ppu_mode,
+        Self {
+            ly_interrupt: (value.rotate_left(6) & 1) == 1,
+            mode_2_interrupt: (value.rotate_left(5) & 1) == 1,
+            mode_1_interrupt: (value.rotate_left(4) & 1) == 1,
+            mode_0_interrupt: (value.rotate_left(3) & 1) == 1,
+            lyc_flag: (value.rotate_left(2) & 1) == 1,
+            ppu_mode: value & 0x03,
         }
     }
 }
@@ -135,6 +120,8 @@ impl std::convert::From<LcdStatusRegister> for u8 {
 /// # PPU (Picture Processing Unit)
 /// On Gameboy Classic there's only one way to initialize VRAM - manually copy data with CPU instructions. This is done in bootstrap ROM process:
 pub struct PictureProcessingUnit {
+    vram: [u8; memory::VRAM_SIZE],
+    voam: [u8; memory::VOAM_SIZE],
     lcd_control_register: LcdControlRegister,
     lcd_stat_register: LcdStatusRegister,
     scy_register: u8,
@@ -146,6 +133,8 @@ pub struct PictureProcessingUnit {
 impl PictureProcessingUnit {
     pub fn new() -> Self {
         PictureProcessingUnit {
+            vram: [memory::DEFAULT_INIT_VALUE; memory::VRAM_SIZE],
+            voam: [memory::DEFAULT_INIT_VALUE; memory::VOAM_SIZE],
             lcd_control_register: LcdControlRegister::default(),
             lcd_stat_register: LcdStatusRegister::default(),
             scy_register: 0,
@@ -159,6 +148,12 @@ impl PictureProcessingUnit {
 impl HardwareAccessible for PictureProcessingUnit {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
         match address {
+            vram_address if address::VIDEO_RAM.contains(&vram_address) => {
+                self.vram[vram_address as usize]
+            }
+            voam_address if address::OAM.contains(&voam_address) => {
+                self.voam[voam_address as usize]
+            }
             address::io_hardware_register::LCD_CONTROL => {
                 LcdControlRegister::into(self.lcd_control_register)
             }
@@ -176,6 +171,12 @@ impl HardwareAccessible for PictureProcessingUnit {
 
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
         match address {
+            vram_address if address::VIDEO_RAM.contains(&vram_address) => {
+                self.vram[vram_address as usize] = data
+            }
+            voam_address if address::OAM.contains(&voam_address) => {
+                self.voam[voam_address as usize] = data
+            }
             address::io_hardware_register::LCD_CONTROL => {
                 self.lcd_control_register = LcdControlRegister::from(data)
             }
@@ -196,7 +197,9 @@ impl HardwareAccessible for PictureProcessingUnit {
 
 impl IoWorkingCycle for PictureProcessingUnit {
     fn next_to(&mut self, cycles: u32) {
-        todo!()
+        if !self.lcd_control_register.lcd_enable {
+            return;
+        }
     }
 }
 

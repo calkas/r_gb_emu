@@ -88,8 +88,10 @@ pub mod gb_memory_map {
     pub mod memory {
         pub const DEFAULT_INIT_VALUE: u8 = 0;
         pub const HIGH_RAM_SIZE: usize = 0x7F;
-        pub const WRAM_SIZE: usize = 0x2000; // Temporary solution when CGB will be support
+        pub const WRAM_SIZE: usize = 0x2000;
         pub const WRAM_ADDRESS_MASK: usize = 0x0FFF;
+        pub const VRAM_SIZE: usize = 0x2000;
+        pub const VOAM_SIZE: usize = 0xA0;
     }
 
     /// ISR_ADDRESS

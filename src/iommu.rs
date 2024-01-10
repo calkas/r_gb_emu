@@ -143,6 +143,8 @@ impl IOMMU {
                     .write_byte_to_hardware_register(timer_address, data);
             }
 
+            address::io_hardware_register::OAM_DMA => self.oam_dma_transfer(data),
+
             address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
                 .write_byte_to_hardware_register(address, data),
@@ -186,6 +188,15 @@ impl IOMMU {
         let high_byte_val = (value & 0xFF00).rotate_right(8) as u8;
         self.write_byte(address, low_byte_val);
         self.write_byte(address + 1, high_byte_val);
+    }
+
+    fn oam_dma_transfer(&mut self, hi_source_address: u8) {
+        let base_source_address = (hi_source_address as u16).rotate_left(8);
+        let base_destination_address = *address::OAM.start();
+        for i in 0..memory::VOAM_SIZE as u16 {
+            let source_byte = self.read_byte(base_source_address + i);
+            self.write_byte(base_destination_address + i, source_byte);
+        }
     }
 }
 
