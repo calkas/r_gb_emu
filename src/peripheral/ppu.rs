@@ -1,5 +1,11 @@
+use self::lcd_monochrome::PaletteRegister;
+use self::lcd_monochrome::{Color, PalleteMode};
+
 use super::{HardwareAccessible, IoWorkingCycle};
-use crate::constants::gb_memory_map::{address, memory};
+use crate::constants::{
+    gb_memory_map::{address, memory},
+    resolution,
+};
 
 /// # LCD Control Register
 #[derive(Clone, Copy, Default)]
@@ -117,6 +123,45 @@ impl std::convert::From<LcdStatusRegister> for u8 {
     }
 }
 
+mod lcd_monochrome {
+    #[derive(PartialEq)]
+    pub enum PalleteMode {
+        BgPallete,
+        ObjPallete,
+    }
+
+    #[derive(PartialEq, Debug)]
+    pub enum Color {
+        White = 0xff,
+        LightGray = 0xc0,
+        DarkGray = 0x60,
+        Black = 0x00,
+    }
+
+    pub struct PaletteRegister {
+        pub data: u8,
+        mode: PalleteMode,
+    }
+
+    impl PaletteRegister {
+        pub fn new(mode: PalleteMode) -> Self {
+            Self { data: 0, mode }
+        }
+        pub fn get_color(&self, color_id: u8) -> Color {
+            let color_value = self.data.rotate_right(2 * color_id as u32) & 0x03;
+            match color_value {
+                0x00 => Color::White,
+                0x01 => Color::LightGray,
+                0x02 => Color::DarkGray,
+                _ => Color::Black,
+            }
+        }
+        pub fn is_transparent(&self, color: Color) -> bool {
+            self.mode == PalleteMode::ObjPallete && color == Color::White
+        }
+    }
+}
+
 /// # PPU (Picture Processing Unit)
 /// On Gameboy Classic there's only one way to initialize VRAM - manually copy data with CPU instructions. This is done in bootstrap ROM process:
 pub struct PictureProcessingUnit {
@@ -128,6 +173,13 @@ pub struct PictureProcessingUnit {
     scx_register: u8,
     ly_register: u8,
     lyc_register: u8,
+    bgp_register: PaletteRegister,
+    obp0_register: PaletteRegister,
+    obp1_register: PaletteRegister,
+    wy_register: u8,
+    wx_register: u8,
+    //Out
+    pub out_frame_buffer: [u8; resolution::SCREEN_W * resolution::SCREEN_W * 3],
 }
 
 impl PictureProcessingUnit {
@@ -141,6 +193,13 @@ impl PictureProcessingUnit {
             scx_register: 0,
             ly_register: 0,
             lyc_register: 0,
+            bgp_register: PaletteRegister::new(PalleteMode::BgPallete),
+            obp0_register: PaletteRegister::new(PalleteMode::ObjPallete),
+            obp1_register: PaletteRegister::new(PalleteMode::ObjPallete),
+            wy_register: 0,
+            wx_register: 0,
+            out_frame_buffer: [memory::DEFAULT_INIT_VALUE;
+                resolution::SCREEN_W * resolution::SCREEN_W * 3],
         }
     }
 }
@@ -149,10 +208,12 @@ impl HardwareAccessible for PictureProcessingUnit {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
         match address {
             vram_address if address::VIDEO_RAM.contains(&vram_address) => {
-                self.vram[vram_address as usize]
+                let address = (vram_address - *address::VIDEO_RAM.start()) as usize;
+                self.vram[address]
             }
             voam_address if address::OAM.contains(&voam_address) => {
-                self.voam[voam_address as usize]
+                let address = (voam_address - *address::OAM.start()) as usize;
+                self.voam[address]
             }
             address::io_hardware_register::LCD_CONTROL => {
                 LcdControlRegister::into(self.lcd_control_register)
@@ -164,7 +225,11 @@ impl HardwareAccessible for PictureProcessingUnit {
             address::io_hardware_register::SCX => self.scx_register,
             address::io_hardware_register::LY => self.ly_register,
             address::io_hardware_register::LYC => self.lyc_register,
-
+            address::io_hardware_register::BGP => self.bgp_register.data,
+            address::io_hardware_register::OBP0 => self.obp0_register.data,
+            address::io_hardware_register::OBP1 => self.obp1_register.data,
+            address::io_hardware_register::WY => self.wy_register,
+            address::io_hardware_register::WX => self.wx_register,
             _ => panic!("[PPU ERROR][Read] Unsupported address: [{:#06x?}]", address),
         }
     }
@@ -172,10 +237,12 @@ impl HardwareAccessible for PictureProcessingUnit {
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
         match address {
             vram_address if address::VIDEO_RAM.contains(&vram_address) => {
-                self.vram[vram_address as usize] = data
+                let address = (vram_address - *address::VIDEO_RAM.start()) as usize;
+                self.vram[address] = data
             }
             voam_address if address::OAM.contains(&voam_address) => {
-                self.voam[voam_address as usize] = data
+                let address = (voam_address - *address::OAM.start()) as usize;
+                self.voam[address] = data
             }
             address::io_hardware_register::LCD_CONTROL => {
                 self.lcd_control_register = LcdControlRegister::from(data)
@@ -187,6 +254,11 @@ impl HardwareAccessible for PictureProcessingUnit {
             address::io_hardware_register::SCX => self.scx_register = data,
             address::io_hardware_register::LY => self.ly_register = data,
             address::io_hardware_register::LYC => self.lyc_register = data,
+            address::io_hardware_register::BGP => self.bgp_register.data = data,
+            address::io_hardware_register::OBP0 => self.obp0_register.data = data,
+            address::io_hardware_register::OBP1 => self.obp1_register.data = data,
+            address::io_hardware_register::WY => self.wy_register = data,
+            address::io_hardware_register::WX => self.wx_register = data,
             _ => panic!(
                 "[PPU ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
@@ -237,5 +309,31 @@ mod uint_test {
         register.ly_interrupt = true;
         register.ppu_mode = 2;
         assert_eq!(0x6A as u8, LcdStatusRegister::into(register));
+    }
+
+    #[test]
+    fn lcd_monochrome_color_palette_test() {
+        let mut palette_reg = PaletteRegister::new(PalleteMode::ObjPallete);
+
+        //Set following colors
+        // [3] White, [2] LightGray, [1] DarkGray, [0] Black
+        // 00011011
+        palette_reg.data = 0x1B;
+
+        let exp_color: [Color; 4] = [
+            Color::Black,
+            Color::DarkGray,
+            Color::LightGray,
+            Color::White,
+        ];
+
+        for color_id in 0..=3 {
+            assert_eq!(
+                exp_color[color_id as usize],
+                palette_reg.get_color(color_id)
+            );
+        }
+        assert!(palette_reg.is_transparent(Color::White) == true);
+        assert!(palette_reg.is_transparent(Color::Black) == false);
     }
 }
