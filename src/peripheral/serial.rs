@@ -1,4 +1,4 @@
-use super::{HardwareAccessible, IoWorkingCycle};
+use super::HardwareAccessible;
 use crate::constants::gb_memory_map::address;
 
 /// # SerialDataTransfer

@@ -1,7 +1,7 @@
 use super::{HardwareAccessible, IoWorkingCycle};
 use crate::constants::gb_memory_map::address;
 
-mod timer {
+mod timer_setup {
     pub const DIV_CLOCK_DIV: u32 = 255;
     pub const TIMA_CLOCK_DIV_0: u32 = 1024;
     pub const TIMA_CLOCK_DIV_1: u32 = 16;
@@ -18,10 +18,10 @@ struct TimerControlRegister {
 impl TimerControlRegister {
     pub fn get_tima_clock_div(&self) -> u32 {
         match self.clock_select {
-            0 => timer::TIMA_CLOCK_DIV_0, // 4096 Hz
-            1 => timer::TIMA_CLOCK_DIV_1, // 262144 Hz
-            2 => timer::TIMA_CLOCK_DIV_2, // 65536 Hz
-            _ => timer::TIMA_CLOCK_DIV_3, // 16384 Hz
+            0 => timer_setup::TIMA_CLOCK_DIV_0, // 4096 Hz
+            1 => timer_setup::TIMA_CLOCK_DIV_1, // 262144 Hz
+            2 => timer_setup::TIMA_CLOCK_DIV_2, // 65536 Hz
+            _ => timer_setup::TIMA_CLOCK_DIV_3, // 16384 Hz
         }
     }
 }
@@ -64,7 +64,7 @@ impl Timer {
         self.internal_div_counter += cycles;
         // It counts up at a frequency of 16382 Hz which means every 256 CPU clock cycles
         // the divider register needs to increment.
-        if self.internal_div_counter >= timer::DIV_CLOCK_DIV {
+        if self.internal_div_counter >= timer_setup::DIV_CLOCK_DIV {
             self.div_counter_register = self.div_counter_register.wrapping_add(1);
             self.internal_div_counter = 0;
         }
@@ -136,7 +136,7 @@ mod ut {
         tac = TimerControlRegister::from(4);
         assert!(tac.clock_enable == true);
         assert_eq!(0, tac.clock_select);
-        assert_eq!(timer::TIMA_CLOCK_DIV_0, tac.get_tima_clock_div());
+        assert_eq!(timer_setup::TIMA_CLOCK_DIV_0, tac.get_tima_clock_div());
 
         let reg_val: u8 = TimerControlRegister::into(tac);
         assert_eq!(0xFC, reg_val);
@@ -144,7 +144,7 @@ mod ut {
         tac = TimerControlRegister::from(0xFB);
         assert!(tac.clock_enable == false);
         assert_eq!(3, tac.clock_select);
-        assert_eq!(timer::TIMA_CLOCK_DIV_3, tac.get_tima_clock_div());
+        assert_eq!(timer_setup::TIMA_CLOCK_DIV_3, tac.get_tima_clock_div());
 
         let reg_val: u8 = TimerControlRegister::into(tac);
         assert_eq!(0xFB, reg_val);

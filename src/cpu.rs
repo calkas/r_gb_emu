@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::constants::gb_memory_map::{address, isr_adress};
 use super::cpu_data::{ControlFlags, FlagsRegister, Registers};
 use super::iommu::IOMMU;

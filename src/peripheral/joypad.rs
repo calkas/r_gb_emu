@@ -1,4 +1,4 @@
-use super::{HardwareAccessible, IoWorkingCycle};
+use super::HardwareAccessible;
 use crate::constants::gb_memory_map::address;
 
 mod joypad_state_register {
@@ -51,9 +51,9 @@ impl JoypadInput {
         ];
 
         if select_button.contains(&key) {
-            return joypad_state_register::BUTTONS_MODE_REQUEST;
+            joypad_state_register::BUTTONS_MODE_REQUEST
         } else if select_dpad.contains(&key) {
-            return joypad_state_register::D_PAD_MODE_REQUEST;
+            joypad_state_register::D_PAD_MODE_REQUEST
         } else {
             panic!("[JOYPAD ERROR] Unsupported key");
         }

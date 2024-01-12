@@ -19,18 +19,13 @@ pub struct InterruptRegister {
 }
 
 impl std::convert::From<u8> for InterruptRegister {
-    fn from(value: u8) -> InterruptRegister {
-        let joypad = (value.rotate_right(4) & 1) == 1;
-        let serial_link = (value.rotate_right(3) & 1) == 1;
-        let timer = (value.rotate_right(2) & 1) == 1;
-        let lcd = (value.rotate_right(1) & 1) == 1;
-        let v_blank = (value & 1) == 1;
-        InterruptRegister {
-            joypad,
-            serial_link,
-            timer,
-            lcd,
-            v_blank,
+    fn from(value: u8) -> Self {
+        Self {
+            joypad: (value.rotate_right(4) & 1) == 1,
+            serial_link: (value.rotate_right(3) & 1) == 1,
+            timer: (value.rotate_right(2) & 1) == 1,
+            lcd: (value.rotate_right(1) & 1) == 1,
+            v_blank: (value.rotate_right(0) & 1) == 1,
         }
     }
 }

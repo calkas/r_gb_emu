@@ -62,7 +62,7 @@ impl std::convert::From<LcdControlRegister> for u8 {
         if register.bg_window_enable_priority {
             out_value |= 1_u8.rotate_left(0);
         }
-        return out_value;
+        out_value
     }
 }
 
