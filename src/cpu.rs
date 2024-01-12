@@ -58,6 +58,8 @@ impl Cpu {
 
         self.iommu.borrow_mut().process(self.cycles);
         //self.debug_dump_regs();
+
+        //   1 machine cycle = 4 clock cycles
         self.cycles
     }
 

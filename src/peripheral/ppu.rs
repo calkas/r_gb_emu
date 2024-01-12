@@ -3,7 +3,7 @@ use self::lcd_monochrome::{Color, PalleteMode};
 
 use super::{HardwareAccessible, IoWorkingCycle};
 use crate::constants::{
-    gb_memory_map::{address, memory},
+    gb_memory_map::{address, address::io_hardware_register, memory},
     resolution,
 };
 
@@ -161,12 +161,34 @@ mod lcd_monochrome {
         }
     }
 }
+#[derive(Clone, Copy)]
+enum PpuState {
+    OamScanMode2,
+    DrawingPixelsMode3,
+    HBlankMode0,
+    VBlankMode1,
+}
 
+impl PpuState {
+    pub fn new() -> Self {
+        Self::OamScanMode2
+    }
+    pub fn next(self) -> Self {
+        match self {
+            Self::OamScanMode2 => Self::DrawingPixelsMode3,
+            Self::DrawingPixelsMode3 => Self::HBlankMode0,
+            Self::HBlankMode0 => Self::VBlankMode1,
+            Self::VBlankMode1 => Self::OamScanMode2,
+        }
+    }
+}
 /// # PPU (Picture Processing Unit)
 /// On Gameboy Classic there's only one way to initialize VRAM - manually copy data with CPU instructions. This is done in bootstrap ROM process:
 pub struct PictureProcessingUnit {
+    //..::Memory::..
     vram: [u8; memory::VRAM_SIZE],
     voam: [u8; memory::VOAM_SIZE],
+    //..::Registers::..
     lcd_control_register: LcdControlRegister,
     lcd_stat_register: LcdStatusRegister,
     scy_register: u8,
@@ -178,7 +200,11 @@ pub struct PictureProcessingUnit {
     obp1_register: PaletteRegister,
     wy_register: u8,
     wx_register: u8,
-    //Out
+    pub vblank_interrupt_req: bool,
+    pub lcd_interrupt_req: bool,
+    //..::Internal::..
+    ppu_fsm: PpuState,
+    //..::Out::..
     pub out_frame_buffer: [u8; resolution::SCREEN_W * resolution::SCREEN_W * 3],
 }
 
@@ -198,6 +224,9 @@ impl PictureProcessingUnit {
             obp1_register: PaletteRegister::new(PalleteMode::ObjPallete),
             wy_register: 0,
             wx_register: 0,
+            vblank_interrupt_req: false,
+            lcd_interrupt_req: false,
+            ppu_fsm: PpuState::new(),
             out_frame_buffer: [memory::DEFAULT_INIT_VALUE;
                 resolution::SCREEN_W * resolution::SCREEN_W * 3],
         }
@@ -215,21 +244,19 @@ impl HardwareAccessible for PictureProcessingUnit {
                 let address = (voam_address - *address::OAM.start()) as usize;
                 self.voam[address]
             }
-            address::io_hardware_register::LCD_CONTROL => {
+            io_hardware_register::LCD_CONTROL => {
                 LcdControlRegister::into(self.lcd_control_register)
             }
-            address::io_hardware_register::LCD_STATUS => {
-                LcdStatusRegister::into(self.lcd_stat_register)
-            }
-            address::io_hardware_register::SCY => self.scy_register,
-            address::io_hardware_register::SCX => self.scx_register,
-            address::io_hardware_register::LY => self.ly_register,
-            address::io_hardware_register::LYC => self.lyc_register,
-            address::io_hardware_register::BGP => self.bgp_register.data,
-            address::io_hardware_register::OBP0 => self.obp0_register.data,
-            address::io_hardware_register::OBP1 => self.obp1_register.data,
-            address::io_hardware_register::WY => self.wy_register,
-            address::io_hardware_register::WX => self.wx_register,
+            io_hardware_register::LCD_STATUS => LcdStatusRegister::into(self.lcd_stat_register),
+            io_hardware_register::SCY => self.scy_register,
+            io_hardware_register::SCX => self.scx_register,
+            io_hardware_register::LY => self.ly_register,
+            io_hardware_register::LYC => self.lyc_register,
+            io_hardware_register::BGP => self.bgp_register.data,
+            io_hardware_register::OBP0 => self.obp0_register.data,
+            io_hardware_register::OBP1 => self.obp1_register.data,
+            io_hardware_register::WY => self.wy_register,
+            io_hardware_register::WX => self.wx_register,
             _ => panic!("[PPU ERROR][Read] Unsupported address: [{:#06x?}]", address),
         }
     }
@@ -244,21 +271,21 @@ impl HardwareAccessible for PictureProcessingUnit {
                 let address = (voam_address - *address::OAM.start()) as usize;
                 self.voam[address] = data
             }
-            address::io_hardware_register::LCD_CONTROL => {
+            io_hardware_register::LCD_CONTROL => {
                 self.lcd_control_register = LcdControlRegister::from(data)
             }
-            address::io_hardware_register::LCD_STATUS => {
+            io_hardware_register::LCD_STATUS => {
                 self.lcd_stat_register = LcdStatusRegister::from(data)
             }
-            address::io_hardware_register::SCY => self.scy_register = data,
-            address::io_hardware_register::SCX => self.scx_register = data,
-            address::io_hardware_register::LY => self.ly_register = data,
-            address::io_hardware_register::LYC => self.lyc_register = data,
-            address::io_hardware_register::BGP => self.bgp_register.data = data,
-            address::io_hardware_register::OBP0 => self.obp0_register.data = data,
-            address::io_hardware_register::OBP1 => self.obp1_register.data = data,
-            address::io_hardware_register::WY => self.wy_register = data,
-            address::io_hardware_register::WX => self.wx_register = data,
+            io_hardware_register::SCY => self.scy_register = data,
+            io_hardware_register::SCX => self.scx_register = data,
+            io_hardware_register::LY => self.ly_register = data,
+            io_hardware_register::LYC => self.lyc_register = data,
+            io_hardware_register::BGP => self.bgp_register.data = data,
+            io_hardware_register::OBP0 => self.obp0_register.data = data,
+            io_hardware_register::OBP1 => self.obp1_register.data = data,
+            io_hardware_register::WY => self.wy_register = data,
+            io_hardware_register::WX => self.wx_register = data,
             _ => panic!(
                 "[PPU ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
@@ -271,6 +298,27 @@ impl IoWorkingCycle for PictureProcessingUnit {
     fn next_to(&mut self, cycles: u32) {
         if !self.lcd_control_register.lcd_enable {
             return;
+        }
+
+        let state = self.ppu_fsm;
+        match state {
+            PpuState::OamScanMode2 => {
+                self.ppu_fsm.next();
+            }
+            PpuState::DrawingPixelsMode3 => {
+                self.ppu_fsm.next();
+            }
+            PpuState::HBlankMode0 => {
+                //wait, then go back to sprite search for next line, or vblank.
+                if self.ly_register >= 144 {
+                    self.ppu_fsm.next();
+                } else {
+                    self.ppu_fsm = PpuState::OamScanMode2;
+                }
+            }
+            PpuState::VBlankMode1 => {
+                self.ppu_fsm.next();
+            }
         }
     }
 }

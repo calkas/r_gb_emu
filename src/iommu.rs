@@ -191,9 +191,15 @@ impl IOMMU {
     }
 
     pub fn process(&mut self, cycles: u32) {
+        self.ppu.borrow_mut().next_to(cycles);
+
         //  * 0 V-Blank
+        self.isr_controller.intf.v_blank = self.ppu.borrow_mut().vblank_interrupt_req;
+        self.ppu.borrow_mut().vblank_interrupt_req = false;
 
         //  * 1 LCD
+        self.isr_controller.intf.lcd = self.ppu.borrow_mut().lcd_interrupt_req;
+        self.ppu.borrow_mut().lcd_interrupt_req = false;
 
         //  * 2 Timer
         self.timer.next_to(cycles);
