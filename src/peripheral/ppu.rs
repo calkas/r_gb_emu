@@ -103,13 +103,18 @@ impl std::convert::From<LcdControlRegister> for u8 {
 }
 
 /// # LCD Status Register
+/// When the LCD status changes its mode to either Mode 0, 1 or 2
+/// then this can cause an LCD Interupt Request to happen.
+/// Bits 3, 4 and 5 of the LCD Status register (0xFF41) are interupt enabled flags
+/// (the same as the Interupt Enabled Register 0xFFFF).
+/// These bits are set by the game not the emulator !!!
 #[derive(Clone, Copy, Default)]
 struct LcdStatusRegister {
-    ly_interrupt: bool,     // Bit 6 - LYC=LY Coincidence Interrupt
-    mode_2_interrupt: bool, // Bit 5 - Mode 2 OAM Interrupt
-    mode_1_interrupt: bool, // Bit 4 - Mode 1 V-Blank Interrupt
-    mode_0_interrupt: bool, // Bit 3 - Mode 0 H-Blank Interrupt
-    lyc_flag: bool,         // Bit 2 - LYC == LY
+    enable_ly_interrupt: bool,     // Bit 6 - LYC=LY Coincidence Interrupt
+    enable_mode_2_interrupt: bool, // Bit 5 - Mode 2 OAM Interrupt
+    enable_mode_1_interrupt: bool, // Bit 4 - Mode 1 V-Blank Interrupt
+    enable_mode_0_interrupt: bool, // Bit 3 - Mode 0 H-Blank Interrupt
+    lyc_flag: bool,                // Bit 2 - LYC == LY
     // Bit 1-0 - Mode Flag
     //    0: During H-Blank
     //    1: During V-Blank
@@ -121,10 +126,10 @@ struct LcdStatusRegister {
 impl std::convert::From<u8> for LcdStatusRegister {
     fn from(value: u8) -> Self {
         Self {
-            ly_interrupt: (value.rotate_left(6) & 1) == 1,
-            mode_2_interrupt: (value.rotate_left(5) & 1) == 1,
-            mode_1_interrupt: (value.rotate_left(4) & 1) == 1,
-            mode_0_interrupt: (value.rotate_left(3) & 1) == 1,
+            enable_ly_interrupt: (value.rotate_left(6) & 1) == 1,
+            enable_mode_2_interrupt: (value.rotate_left(5) & 1) == 1,
+            enable_mode_1_interrupt: (value.rotate_left(4) & 1) == 1,
+            enable_mode_0_interrupt: (value.rotate_left(3) & 1) == 1,
             lyc_flag: (value.rotate_left(2) & 1) == 1,
             ppu_mode: value & 0x03,
         }
@@ -134,16 +139,16 @@ impl std::convert::From<u8> for LcdStatusRegister {
 impl std::convert::From<LcdStatusRegister> for u8 {
     fn from(register: LcdStatusRegister) -> Self {
         let mut out_value: u8 = 0;
-        if register.ly_interrupt {
+        if register.enable_ly_interrupt {
             out_value |= 1_u8.rotate_left(6);
         }
-        if register.mode_2_interrupt {
+        if register.enable_mode_2_interrupt {
             out_value |= 1_u8.rotate_left(5);
         }
-        if register.mode_1_interrupt {
+        if register.enable_mode_1_interrupt {
             out_value |= 1_u8.rotate_left(4);
         }
-        if register.mode_0_interrupt {
+        if register.enable_mode_0_interrupt {
             out_value |= 1_u8.rotate_left(3);
         }
         if register.lyc_flag {
@@ -303,6 +308,13 @@ impl PictureProcessingUnit {
         }
     }
 
+    pub fn check_lyc_ly_comparison(&mut self) {
+        if self.ly_register == self.lyc_register {
+            self.lcd_stat_register.lyc_flag = true;
+            self.lcd_stat_register.enable_ly_interrupt = true;
+        }
+    }
+
     fn get_sprite_from_oam(&mut self, sprite_id: u16) -> Sprite {
         let oam_base_address = *address::OAM.start();
         // sprite occupies 4 bytes in the sprite attributes table
@@ -326,13 +338,6 @@ impl PictureProcessingUnit {
         }
     }
 
-    pub fn check_lyc_ly_comparison(&mut self) {
-        if self.ly_register == self.lyc_register {
-            self.lcd_stat_register.lyc_flag = true;
-            self.lcd_stat_register.ly_interrupt = true;
-        }
-    }
-
     fn sprite_search(&mut self) {
         self.sprite_buffer.clear();
 
@@ -352,6 +357,24 @@ impl PictureProcessingUnit {
             }
 
             self.sprite_buffer.push(sprite);
+        }
+    }
+
+    fn enter_to_new_mode(&mut self, ppu_state: u8, interrupt_needed: bool) {
+        if self.lcd_stat_register.ppu_mode != ppu_state {
+            self.lcd_stat_register.ppu_mode = ppu_state;
+            self.lcd_interrupt_req = interrupt_needed;
+        }
+    }
+
+    fn check_conincidence_flag(&mut self) {
+        if self.ly_register == self.lyc_register {
+            self.lcd_stat_register.lyc_flag = true;
+            if self.lcd_stat_register.enable_ly_interrupt {
+                self.lcd_interrupt_req = true;
+            }
+        } else {
+            self.lcd_stat_register.lyc_flag = false;
         }
     }
 }
@@ -433,8 +456,10 @@ impl IoWorkingCycle for PictureProcessingUnit {
         // Mode_2 (80 dots) + Mode_3 (172 dots) + Mode_0 (204 dots) + Mode_1 (10 *456) = 70224 dosts
         match state {
             fsm::PpuState::OamScanMode2 => {
-                self.lcd_stat_register.ppu_mode = fsm::PpuState::OamScanMode2 as u8;
-
+                self.enter_to_new_mode(
+                    fsm::PpuState::OamScanMode2 as u8,
+                    self.lcd_stat_register.enable_mode_2_interrupt,
+                );
                 if self.internal_scan_line_counter >= 80 {
                     self.sprite_search();
                     self.internal_scan_line_counter -= 80;
@@ -442,7 +467,7 @@ impl IoWorkingCycle for PictureProcessingUnit {
                 }
             }
             fsm::PpuState::DrawingPixelsMode3 => {
-                self.lcd_stat_register.ppu_mode = fsm::PpuState::DrawingPixelsMode3 as u8;
+                self.enter_to_new_mode(fsm::PpuState::DrawingPixelsMode3 as u8, false);
 
                 if self.internal_scan_line_counter >= 172 {
                     self.internal_scan_line_counter -= 172;
@@ -450,16 +475,24 @@ impl IoWorkingCycle for PictureProcessingUnit {
                 }
             }
             fsm::PpuState::HBlankMode0 => {
-                self.lcd_stat_register.ppu_mode = fsm::PpuState::HBlankMode0 as u8;
+                self.enter_to_new_mode(
+                    fsm::PpuState::HBlankMode0 as u8,
+                    self.lcd_stat_register.enable_mode_0_interrupt,
+                );
 
                 if self.internal_scan_line_counter >= 204 {
                     self.internal_scan_line_counter -= 204;
 
                     self.ly_register += 1;
 
+                    self.check_conincidence_flag();
+
                     if self.ly_register == 144 {
                         //vblank
                         self.ppu_fsm = self.ppu_fsm.next();
+
+                        //temporary solution 
+                        self.vblank_interrupt_req = true;
                     } else {
                         //go back to sprite search for next line
                         self.ppu_fsm = fsm::PpuState::OamScanMode2;
@@ -467,7 +500,11 @@ impl IoWorkingCycle for PictureProcessingUnit {
                 }
             }
             fsm::PpuState::VBlankMode1 => {
-                self.lcd_stat_register.ppu_mode = fsm::PpuState::VBlankMode1 as u8;
+                self.enter_to_new_mode(
+                    fsm::PpuState::VBlankMode1 as u8,
+                    self.lcd_stat_register.enable_mode_1_interrupt,
+                );
+
                 //Duration 4560 dots (10 scanlines)
                 if self.internal_scan_line_counter >= 456 {
                     self.internal_scan_line_counter -= 456;
@@ -587,14 +624,14 @@ mod uint_test {
     fn lcd_stat_register_convert_test() {
         let mut register = LcdStatusRegister::from(0x2B);
 
-        assert!(register.ly_interrupt == false);
-        assert!(register.mode_2_interrupt == true);
-        assert!(register.mode_1_interrupt == false);
-        assert!(register.mode_0_interrupt == true);
+        assert!(register.enable_ly_interrupt == false);
+        assert!(register.enable_mode_2_interrupt == true);
+        assert!(register.enable_mode_1_interrupt == false);
+        assert!(register.enable_mode_0_interrupt == true);
         assert!(register.lyc_flag == false);
         assert!(register.ppu_mode == 3);
 
-        register.ly_interrupt = true;
+        register.enable_ly_interrupt = true;
         register.ppu_mode = 2;
         assert_eq!(0x6A as u8, LcdStatusRegister::into(register));
     }
