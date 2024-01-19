@@ -1,6 +1,6 @@
 use self::lcd_monochrome::PaletteRegister;
 use self::lcd_monochrome::{Color, PalleteMode};
-use self::sprite::Attribute;
+use self::sprite::{Attribute, Sprite};
 
 use super::{HardwareAccessible, IoWorkingCycle};
 use crate::constants::{
@@ -194,7 +194,7 @@ mod lcd_monochrome {
 }
 
 mod fsm {
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, PartialEq, Debug)]
     pub enum PpuState {
         OamScanMode2 = 2,
         DrawingPixelsMode3 = 3,
@@ -268,7 +268,7 @@ pub struct PictureProcessingUnit {
     //..::Internal::..
     ppu_fsm: fsm::PpuState,
     internal_scan_line_counter: u32,
-    sprite_buffer: Vec<sprite::Sprite>,
+    sprite_buffer: Vec<Sprite>,
     //..::Out::..
     pub out_frame_buffer: [u8; resolution::SCREEN_W * resolution::SCREEN_W * 3],
 }
@@ -303,7 +303,7 @@ impl PictureProcessingUnit {
         }
     }
 
-    fn get_sprite_from_oam(&mut self, sprite_id: u16) -> sprite::Sprite {
+    fn get_sprite_from_oam(&mut self, sprite_id: u16) -> Sprite {
         let oam_base_address = *address::OAM.start();
         // sprite occupies 4 bytes in the sprite attributes table
         let sprite_index = sprite_id * 4;
@@ -318,7 +318,7 @@ impl PictureProcessingUnit {
         let raw_attribute =
             self.read_byte_from_hardware_register(oam_base_address + sprite_index + 3);
 
-        sprite::Sprite {
+        Sprite {
             attribute: Attribute::from(raw_attribute),
             tile_index,
             x_position,
@@ -427,7 +427,10 @@ impl IoWorkingCycle for PictureProcessingUnit {
 
         let state = self.ppu_fsm;
 
+        // ..:: One scanline ::..
         // Mode_2 (80 dots) + Mode_3 (172 dots) + Mode_0 (204 dots) = 456 dots
+        // ..:: All scanlines done "One frame" ::..
+        // Mode_2 (80 dots) + Mode_3 (172 dots) + Mode_0 (204 dots) + Mode_1 (10 *456) = 70224 dosts
         match state {
             fsm::PpuState::OamScanMode2 => {
                 self.lcd_stat_register.ppu_mode = fsm::PpuState::OamScanMode2 as u8;
@@ -435,7 +438,7 @@ impl IoWorkingCycle for PictureProcessingUnit {
                 if self.internal_scan_line_counter >= 80 {
                     self.sprite_search();
                     self.internal_scan_line_counter -= 80;
-                    self.ppu_fsm.next();
+                    self.ppu_fsm = self.ppu_fsm.next();
                 }
             }
             fsm::PpuState::DrawingPixelsMode3 => {
@@ -443,7 +446,7 @@ impl IoWorkingCycle for PictureProcessingUnit {
 
                 if self.internal_scan_line_counter >= 172 {
                     self.internal_scan_line_counter -= 172;
-                    self.ppu_fsm.next();
+                    self.ppu_fsm = self.ppu_fsm.next();
                 }
             }
             fsm::PpuState::HBlankMode0 => {
@@ -452,11 +455,11 @@ impl IoWorkingCycle for PictureProcessingUnit {
                 if self.internal_scan_line_counter >= 204 {
                     self.internal_scan_line_counter -= 204;
 
-                    self.ly_register = (self.ly_register + 1) % 154;
+                    self.ly_register += 1;
 
-                    if self.ly_register >= 144 {
+                    if self.ly_register == 144 {
                         //vblank
-                        self.ppu_fsm.next();
+                        self.ppu_fsm = self.ppu_fsm.next();
                     } else {
                         //go back to sprite search for next line
                         self.ppu_fsm = fsm::PpuState::OamScanMode2;
@@ -466,9 +469,13 @@ impl IoWorkingCycle for PictureProcessingUnit {
             fsm::PpuState::VBlankMode1 => {
                 self.lcd_stat_register.ppu_mode = fsm::PpuState::VBlankMode1 as u8;
                 //Duration 4560 dots (10 scanlines)
-                if self.internal_scan_line_counter >= 4560 {
-                    self.internal_scan_line_counter -= 4560;
-                    self.ppu_fsm.next();
+                if self.internal_scan_line_counter >= 456 {
+                    self.internal_scan_line_counter -= 456;
+                    self.ly_register += 1;
+                    if self.ly_register == 154 {
+                        self.ly_register = 0;
+                        self.ppu_fsm = self.ppu_fsm.next();
+                    }
                 }
             }
         }
@@ -478,6 +485,87 @@ impl IoWorkingCycle for PictureProcessingUnit {
 #[cfg(test)]
 mod uint_test {
     use super::*;
+
+    #[test]
+    fn ppu_mode_one_scanline_done_hblank_test() {
+        let mut ppu = PictureProcessingUnit::new();
+
+        ppu.lcd_control_register.lcd_enable = true;
+
+        //Case: Test one scanline Hblank 456 dots
+        //[Mode 2]->[Mode 3]->[Mode 0]->[Mode 2]
+
+        //Switch to Mode 2
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
+        ppu.next_to(80);
+
+        //Switch to Mode 3
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::DrawingPixelsMode3, ppu.ppu_fsm);
+        assert_eq!(3, ppu.lcd_stat_register.ppu_mode);
+        ppu.next_to(172);
+
+        //Switch to Mode 0
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::HBlankMode0, ppu.ppu_fsm);
+        assert_eq!(ppu.lcd_stat_register.ppu_mode, 0);
+        ppu.next_to(204);
+        assert_eq!(1, ppu.ly_register);
+
+        //Switch to Mode 2
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
+    }
+
+    #[test]
+
+    fn ppu_mode_all_scanlines_done_vblank_test() {
+        let mut ppu = PictureProcessingUnit::new();
+
+        ppu.lcd_control_register.lcd_enable = true;
+        ppu.ly_register = 143;
+
+        //Case: Test all scanlines done vblank 70224 dots "one frame"
+        //[Mode 2]->[Mode 3]->[Mode 0]->[Mode 1]->[Mode 2]
+
+        //Switch to Mode 2
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
+        ppu.next_to(80);
+
+        //Switch to Mode 3
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::DrawingPixelsMode3, ppu.ppu_fsm);
+        assert_eq!(3, ppu.lcd_stat_register.ppu_mode);
+        ppu.next_to(172);
+
+        //Switch to Mode 0
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::HBlankMode0, ppu.ppu_fsm);
+        assert_eq!(ppu.lcd_stat_register.ppu_mode, 0);
+        ppu.next_to(204);
+
+        //Switch to Mode 1
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::VBlankMode1, ppu.ppu_fsm);
+        assert_eq!(ppu.lcd_stat_register.ppu_mode, 1);
+
+        //Wait 10 scanlines
+        for _ in 0..10 {
+            ppu.next_to(456);
+        }
+
+        assert_eq!(0, ppu.ly_register);
+
+        //Switch to Mode 2
+        ppu.next_to(0);
+        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
+    }
     #[test]
     fn lcd_control_register_convert_test() {
         let mut register = LcdControlRegister::from(0xAA);
