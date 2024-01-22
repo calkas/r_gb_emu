@@ -363,6 +363,10 @@ impl PictureProcessingUnit {
     fn enter_to_new_mode(&mut self, ppu_state: u8, interrupt_needed: bool) {
         if self.lcd_stat_register.ppu_mode != ppu_state {
             self.lcd_stat_register.ppu_mode = ppu_state;
+
+            if ppu_state == fsm::PpuState::VBlankMode1 as u8 {
+                self.vblank_interrupt_req = true;
+            }
             self.lcd_interrupt_req = interrupt_needed;
         }
     }
@@ -488,11 +492,8 @@ impl IoWorkingCycle for PictureProcessingUnit {
                     self.check_conincidence_flag();
 
                     if self.ly_register == 144 {
-                        //vblank
+                        //go to vblank
                         self.ppu_fsm = self.ppu_fsm.next();
-
-                        //temporary solution 
-                        self.vblank_interrupt_req = true;
                     } else {
                         //go back to sprite search for next line
                         self.ppu_fsm = fsm::PpuState::OamScanMode2;
@@ -548,8 +549,13 @@ mod uint_test {
         ppu.next_to(0);
         assert_eq!(fsm::PpuState::HBlankMode0, ppu.ppu_fsm);
         assert_eq!(ppu.lcd_stat_register.ppu_mode, 0);
+
+        ppu.lyc_register = 1;
+        ppu.lcd_stat_register.enable_ly_interrupt = true;
         ppu.next_to(204);
         assert_eq!(1, ppu.ly_register);
+        assert!(ppu.lcd_interrupt_req == true);
+        assert!(ppu.lcd_stat_register.lyc_flag == true);
 
         //Switch to Mode 2
         ppu.next_to(0);
@@ -590,6 +596,7 @@ mod uint_test {
         ppu.next_to(0);
         assert_eq!(fsm::PpuState::VBlankMode1, ppu.ppu_fsm);
         assert_eq!(ppu.lcd_stat_register.ppu_mode, 1);
+        assert!(ppu.vblank_interrupt_req == true);
 
         //Wait 10 scanlines
         for _ in 0..10 {
