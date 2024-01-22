@@ -3,6 +3,7 @@ use self::lcd_monochrome::{Color, PalleteMode};
 use self::sprite::{Attribute, Sprite};
 
 use super::{HardwareAccessible, IoWorkingCycle};
+use crate::constants::resolution::SCREEN_W;
 use crate::constants::{
     gb_memory_map::{address, address::io_hardware_register, memory},
     resolution,
@@ -315,6 +316,19 @@ impl PictureProcessingUnit {
         }
     }
 
+    fn get_tile_data_address(&self, tile_number: u8) -> u16 {
+        let base_title_address = self.lcd_control_register.get_tile_data_base_address();
+
+        let title_offset = if base_title_address == 0x8000 {
+            i16::from(tile_number)
+        } else {
+            i16::from(tile_number as i8) + 128
+        } as u16
+            * 16;
+
+        base_title_address + title_offset
+    }
+
     fn get_sprite_from_oam(&mut self, sprite_id: u16) -> Sprite {
         let oam_base_address = *address::OAM.start();
         // sprite occupies 4 bytes in the sprite attributes table
@@ -357,6 +371,56 @@ impl PictureProcessingUnit {
             }
 
             self.sprite_buffer.push(sprite);
+        }
+    }
+
+    fn get_color_id(&mut self, low_byte: u8, high_byte: u8, pixel_num: u8) -> u8 {
+        let bit_low = low_byte.rotate_right(7 - pixel_num as u32) & 0x1;
+        let bit_high = high_byte.rotate_right(7 - pixel_num as u32) & 0x1;
+        (bit_high.rotate_left(1)) | bit_low
+    }
+
+    fn draw_background_scanline(&mut self) {
+        let tile_map_address = self.lcd_control_register.get_bg_tile_map_base_address();
+        let scy = self.scy_register;
+        let scx = self.scx_register;
+
+        let mut cursor_x: u8 = scx;
+        let cursor_y: u8 = self.ly_register.wrapping_add(scy);
+
+        for screen_x in 0..resolution::SCREEN_W as u8 {
+            cursor_x = cursor_x.wrapping_add(screen_x);
+
+            //32x32 grid of 8x8 pixel tiles
+            let tile_grid_map_row_num = cursor_y / 8;
+            let tile_grid_map_col_num = cursor_x / 8;
+            let tile_coordinates = (tile_grid_map_row_num * 32 + tile_grid_map_col_num) as u16;
+
+            let tile_number =
+                self.read_byte_from_hardware_register(tile_map_address + tile_coordinates);
+
+            let tile_data_address = self.get_tile_data_address(tile_number);
+
+            // The Gameboy displays its graphics using 8x8-pixel tiles.
+            // As the name 2BPP implies, it takes exactly two bits to store the information about a single pixel.
+            // There are 64 total pixels in a single tile (8x8 pixels).
+            // Therefore, exactly 128 bits, or 16 bytes, are required to fully represent a single tile
+            // Eg.
+            // [Row0][Row1][Row2][Row3][Row4][Row5][Row6][Row7]
+            //  7C 7C 00 C6 C6 00 00 FE C6 C6 00 C6 C6 00 00 00 <-One title
+
+            //Pixel coordinates in the local 8x8 tile.
+            let pixel_row_num = cursor_y % 8;
+            let pixel_col_num = cursor_x % 8;
+
+            // multiply by 2 because every row of 8 pixels is 2 bytes of data.
+            let tile_pixel_row_index = tile_data_address + (pixel_row_num as u16 * 2);
+
+            let pixel_low_byte = self.read_byte_from_hardware_register(tile_pixel_row_index);
+            let pixel_high_byte = self.read_byte_from_hardware_register(tile_pixel_row_index + 1);
+
+            let color_id = self.get_color_id(pixel_low_byte, pixel_high_byte, pixel_col_num);
+            let pixel_color = self.bgp_register.get_color(color_id);
         }
     }
 
