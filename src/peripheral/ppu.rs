@@ -1,9 +1,6 @@
-use self::lcd_monochrome::PaletteRegister;
-use self::lcd_monochrome::{Color, PalleteMode};
+use self::lcd_monochrome::{Color, PaletteRegister, PalleteMode, Pixel2bpp};
 use self::sprite::{Attribute, Sprite};
-
 use super::{HardwareAccessible, IoWorkingCycle};
-use crate::constants::resolution::SCREEN_W;
 use crate::constants::{
     gb_memory_map::{address, address::io_hardware_register, memory},
     resolution,
@@ -17,17 +14,18 @@ mod graphics {
 /// # LCD Control Register
 #[derive(Clone, Copy, Default)]
 struct LcdControlRegister {
-    lcd_enable: bool,                // LCD Display Enable (0=Off, 1=On)
-    window_tile_map_area: bool,      // Window Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF
-    window_enable: bool,             // Window Display Enable (0=Off, 1=On)
-    bg_window_tile_data_area: bool,  // BG & Window Tile Data Select (0=8800-97FF, 1=8000-8FFF)
-    bg_tile_map_area: bool,          // BG Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
-    obj_size: bool,                  // OBJ (Sprite) Size (0=8x8, 1=8x16)
-    obj_enable: bool,                // OBJ (Sprite) Display Enable (0=Off, 1=On)
-    bg_window_enable_priority: bool, // BG Display (for CGB see below) (0=Off, 1=On)
+    lcd_enable: bool,               // LCD Display Enable (0=Off, 1=On)
+    window_tile_map_area: bool,     // Window Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF
+    window_enable: bool,            // Window Display Enable (0=Off, 1=On)
+    bg_window_tile_data_area: bool, // BG & Window Tile Data Select (0=8800-97FF, 1=8000-8FFF)
+    bg_tile_map_area: bool,         // BG Tile Map Display Select (0=9800-9BFF, 1=9C00-9FFF)
+    obj_size: bool,                 // OBJ (Sprite) Size (0=8x8, 1=8x16)
+    obj_enable: bool,               // OBJ (Sprite) Display Enable (0=Off, 1=On)
+    bg_and_window_enable: bool,     // BG Display (for CGB see below) (0=Off, 1=On)
 }
 
 impl LcdControlRegister {
+    //----------------- MAPS -----------------
     pub fn get_window_tile_map_base_address(&self) -> u16 {
         if self.window_tile_map_area {
             return 0x9C00;
@@ -35,18 +33,20 @@ impl LcdControlRegister {
         0x9800
     }
 
-    pub fn get_tile_data_base_address(&self) -> u16 {
-        if self.bg_window_tile_data_area {
-            return 0x8000;
-        }
-        0x8800
-    }
-
     pub fn get_bg_tile_map_base_address(&self) -> u16 {
         if self.bg_tile_map_area {
             return 0x9C00;
         }
         0x9800
+    }
+
+    //-------------- TILE DATA ---------------
+
+    pub fn get_tile_data_base_address(&self) -> u16 {
+        if self.bg_window_tile_data_area {
+            return 0x8000;
+        }
+        0x8800
     }
 
     pub fn get_sprite_high_size(&self) -> u8 {
@@ -67,7 +67,7 @@ impl std::convert::From<u8> for LcdControlRegister {
             bg_tile_map_area: (value.rotate_left(3) & 1) == 1,
             obj_size: (value.rotate_left(2) & 1) == 1,
             obj_enable: (value.rotate_left(1) & 1) == 1,
-            bg_window_enable_priority: (value.rotate_left(0) & 1) == 1,
+            bg_and_window_enable: (value.rotate_left(0) & 1) == 1,
         }
     }
 }
@@ -96,7 +96,7 @@ impl std::convert::From<LcdControlRegister> for u8 {
         if register.obj_enable {
             out_value |= 1_u8.rotate_left(1);
         }
-        if register.bg_window_enable_priority {
+        if register.bg_and_window_enable {
             out_value |= 1_u8.rotate_left(0);
         }
         out_value
@@ -197,6 +197,27 @@ mod lcd_monochrome {
             self.mode == PalleteMode::ObjPallete && color == Color::White
         }
     }
+
+    #[derive(Clone, Copy)]
+    pub struct Pixel2bpp {
+        pub low_byte: u8,
+        pub high_byte: u8,
+        pub pixel_bit_activation: u8,
+    }
+
+    impl Pixel2bpp {
+        pub fn get_color_id(&mut self) -> u8 {
+            let color_bit_low = self
+                .low_byte
+                .rotate_right(7 - self.pixel_bit_activation as u32)
+                & 0x1;
+            let color_bit_high = self
+                .high_byte
+                .rotate_right(7 - self.pixel_bit_activation as u32)
+                & 0x1;
+            (color_bit_high.rotate_left(1)) | color_bit_low
+        }
+    }
 }
 
 mod fsm {
@@ -274,9 +295,10 @@ pub struct PictureProcessingUnit {
     //..::Internal::..
     ppu_fsm: fsm::PpuState,
     internal_scan_line_counter: u32,
+    internal_window_line_counter: u8,
     sprite_buffer: Vec<Sprite>,
     //..::Out::..
-    pub out_frame_buffer: [u8; resolution::SCREEN_W * resolution::SCREEN_W * 3],
+    pub out_frame_buffer: [[[u8; 3]; resolution::SCREEN_W]; resolution::SCREEN_H],
 }
 
 impl PictureProcessingUnit {
@@ -302,10 +324,10 @@ impl PictureProcessingUnit {
             //..::Internal::..
             ppu_fsm: fsm::PpuState::new(),
             internal_scan_line_counter: 0,
+            internal_window_line_counter: 0,
             sprite_buffer: Vec::new(),
             //..::Out::..
-            out_frame_buffer: [memory::DEFAULT_INIT_VALUE;
-                resolution::SCREEN_W * resolution::SCREEN_W * 3],
+            out_frame_buffer: [[[0xFF; 3]; resolution::SCREEN_W]; resolution::SCREEN_H],
         }
     }
 
@@ -314,6 +336,12 @@ impl PictureProcessingUnit {
             self.lcd_stat_register.lyc_flag = true;
             self.lcd_stat_register.enable_ly_interrupt = true;
         }
+    }
+
+    fn store_pixel_to_output_buffer(&mut self, row: u8, col: u8, color: Color) {
+        let color_val = color as u8;
+        let rgb = (color_val, color_val, color_val);
+        self.out_frame_buffer[row as usize][col as usize] = [rgb.0, rgb.1, rgb.2];
     }
 
     fn get_tile_data_address(&self, tile_number: u8) -> u16 {
@@ -374,54 +402,110 @@ impl PictureProcessingUnit {
         }
     }
 
-    fn get_color_id(&mut self, low_byte: u8, high_byte: u8, pixel_num: u8) -> u8 {
-        let bit_low = low_byte.rotate_right(7 - pixel_num as u32) & 0x1;
-        let bit_high = high_byte.rotate_right(7 - pixel_num as u32) & 0x1;
-        (bit_high.rotate_left(1)) | bit_low
+    fn draw_scanline(&mut self) {
+        if self.lcd_control_register.bg_and_window_enable {
+            self.draw_background_scanline();
+            self.draw_window_scanline();
+        }
+
+        if self.lcd_control_register.obj_enable {
+            self.draw_sprite_scanline();
+        }
+    }
+
+    fn get_tile_pixel(&mut self, cursor_x: u8, cursor_y: u8, tile_map_address: u16) -> Pixel2bpp {
+        // 32x32 grid of 8x8 pixel tiles
+        let tile_grid_map_row_num = cursor_y / 8;
+        let tile_grid_map_col_num = cursor_x / 8;
+        let tile_coordinates = (tile_grid_map_row_num * 32 + tile_grid_map_col_num) as u16;
+
+        let tile_number =
+            self.read_byte_from_hardware_register(tile_map_address + tile_coordinates);
+
+        let tile_data_address = self.get_tile_data_address(tile_number);
+
+        // The Gameboy displays its graphics using 8x8-pixel tiles.
+        // As the name 2BPP implies, it takes exactly two bits to store the information about a single pixel.
+        // There are 64 total pixels in a single tile (8x8 pixels).
+        // Therefore, exactly 128 bits, or 16 bytes, are required to fully represent a single tile
+        // Eg.
+        // [Row0][Row1][Row2][Row3][Row4][Row5][Row6][Row7]
+        //  7C 7C 00 C6 C6 00 00 FE C6 C6 00 C6 C6 00 00 00 <-One title
+
+        //Pixel coordinates in the local 8x8 tile.
+        let pixel_row_num = cursor_y % 8;
+        let pixel_col_num = cursor_x % 8;
+
+        // multiply by 2 because every row of 8 pixels is 2 bytes of data.
+        let tile_pixel_row_index = tile_data_address + (pixel_row_num as u16 * 2);
+
+        let low_byte = self.read_byte_from_hardware_register(tile_pixel_row_index);
+        let high_byte = self.read_byte_from_hardware_register(tile_pixel_row_index + 1);
+
+        Pixel2bpp {
+            low_byte,
+            high_byte,
+            pixel_bit_activation: pixel_col_num,
+        }
     }
 
     fn draw_background_scanline(&mut self) {
         let tile_map_address = self.lcd_control_register.get_bg_tile_map_base_address();
-        let scy = self.scy_register;
-        let scx = self.scx_register;
+        let mut bg_cursor_x: u8 = self.scx_register;
+        let bg_cursor_y: u8 = self.ly_register.wrapping_add(self.scy_register);
 
-        let mut cursor_x: u8 = scx;
-        let cursor_y: u8 = self.ly_register.wrapping_add(scy);
+        //  -------> [x]
+        // |
+        // |   [row, col]
+        // |
+        // V [y]
 
-        for screen_x in 0..resolution::SCREEN_W as u8 {
-            cursor_x = cursor_x.wrapping_add(screen_x);
+        for screen_col in 0..resolution::SCREEN_W as u8 {
+            bg_cursor_x = bg_cursor_x.wrapping_add(screen_col);
 
-            //32x32 grid of 8x8 pixel tiles
-            let tile_grid_map_row_num = cursor_y / 8;
-            let tile_grid_map_col_num = cursor_x / 8;
-            let tile_coordinates = (tile_grid_map_row_num * 32 + tile_grid_map_col_num) as u16;
+            let mut pixel = self.get_tile_pixel(bg_cursor_x, bg_cursor_y, tile_map_address);
+            let color_id = pixel.get_color_id();
 
-            let tile_number =
-                self.read_byte_from_hardware_register(tile_map_address + tile_coordinates);
-
-            let tile_data_address = self.get_tile_data_address(tile_number);
-
-            // The Gameboy displays its graphics using 8x8-pixel tiles.
-            // As the name 2BPP implies, it takes exactly two bits to store the information about a single pixel.
-            // There are 64 total pixels in a single tile (8x8 pixels).
-            // Therefore, exactly 128 bits, or 16 bytes, are required to fully represent a single tile
-            // Eg.
-            // [Row0][Row1][Row2][Row3][Row4][Row5][Row6][Row7]
-            //  7C 7C 00 C6 C6 00 00 FE C6 C6 00 C6 C6 00 00 00 <-One title
-
-            //Pixel coordinates in the local 8x8 tile.
-            let pixel_row_num = cursor_y % 8;
-            let pixel_col_num = cursor_x % 8;
-
-            // multiply by 2 because every row of 8 pixels is 2 bytes of data.
-            let tile_pixel_row_index = tile_data_address + (pixel_row_num as u16 * 2);
-
-            let pixel_low_byte = self.read_byte_from_hardware_register(tile_pixel_row_index);
-            let pixel_high_byte = self.read_byte_from_hardware_register(tile_pixel_row_index + 1);
-
-            let color_id = self.get_color_id(pixel_low_byte, pixel_high_byte, pixel_col_num);
-            let pixel_color = self.bgp_register.get_color(color_id);
+            self.store_pixel_to_output_buffer(
+                self.ly_register,
+                screen_col,
+                self.bgp_register.get_color(color_id),
+            );
         }
+    }
+
+    fn draw_window_scanline(&mut self) {
+        if !self.lcd_control_register.window_enable || self.ly_register != self.wy_register {
+            return;
+        }
+        let tile_map_address = self.lcd_control_register.get_window_tile_map_base_address();
+
+        // The window keeps an internal line counter that’s functionally similar to LY,
+        // and increments alongside it. However, it only gets incremented when the window is visible.
+        let win_cursor_y = self.internal_window_line_counter;
+
+        for screen_col in 0..resolution::SCREEN_W as u8 {
+            let mut win_cursor_x = 0 - (self.wx_register as i8 - 7) + screen_col as i8;
+
+            if win_cursor_x < 0 {
+                continue;
+            }
+
+            let mut pixel = self.get_tile_pixel(win_cursor_x as u8, win_cursor_y, tile_map_address);
+            let color_id = pixel.get_color_id();
+
+            self.store_pixel_to_output_buffer(
+                self.ly_register,
+                screen_col,
+                self.bgp_register.get_color(color_id),
+            );
+        }
+
+        self.internal_window_line_counter += 1;
+    }
+
+    fn draw_sprite_scanline(&mut self) {
+        todo!();
     }
 
     fn enter_to_new_mode(&mut self, ppu_state: u8, interrupt_needed: bool) {
@@ -551,9 +635,10 @@ impl IoWorkingCycle for PictureProcessingUnit {
                 if self.internal_scan_line_counter >= 204 {
                     self.internal_scan_line_counter -= 204;
 
-                    self.ly_register += 1;
-
                     self.check_conincidence_flag();
+                    self.draw_scanline();
+
+                    self.ly_register += 1;
 
                     if self.ly_register == 144 {
                         //go to vblank
@@ -569,6 +654,9 @@ impl IoWorkingCycle for PictureProcessingUnit {
                     fsm::PpuState::VBlankMode1 as u8,
                     self.lcd_stat_register.enable_mode_1_interrupt,
                 );
+
+                // Reset window internal state counter.
+                self.internal_window_line_counter = 0;
 
                 //Duration 4560 dots (10 scanlines)
                 if self.internal_scan_line_counter >= 456 {
@@ -684,7 +772,7 @@ mod uint_test {
         assert!(register.bg_tile_map_area == true);
         assert!(register.obj_size == false);
         assert!(register.obj_enable == true);
-        assert!(register.bg_window_enable_priority == false);
+        assert!(register.bg_and_window_enable == false);
 
         register.window_tile_map_area = true;
         register.bg_window_tile_data_area = true;
