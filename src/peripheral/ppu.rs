@@ -161,13 +161,13 @@ impl std::convert::From<LcdStatusRegister> for u8 {
 }
 
 mod lcd_monochrome {
-    #[derive(PartialEq)]
+    #[derive(Clone, Copy, PartialEq)]
     pub enum PalleteMode {
         BgPallete,
         ObjPallete,
     }
 
-    #[derive(PartialEq, Debug)]
+    #[derive(Clone, Copy, PartialEq, Debug)]
     pub enum Color {
         White = 0xff,
         LightGray = 0xc0,
@@ -175,6 +175,7 @@ mod lcd_monochrome {
         Black = 0x00,
     }
 
+    #[derive(Clone, Copy)]
     pub struct PaletteRegister {
         pub data: u8,
         mode: PalleteMode,
@@ -367,7 +368,12 @@ impl PictureProcessingUnit {
         let x_position = (self.read_byte_from_hardware_register(oam_base_address + sprite_index + 1)
             as i8
             - 8) as u8;
-        let tile_index = self.read_byte_from_hardware_register(oam_base_address + sprite_index + 2);
+        let tile_index = self.read_byte_from_hardware_register(oam_base_address + sprite_index + 2)
+            & if self.lcd_control_register.obj_size {
+                0xFE
+            } else {
+                0xFF
+            };
 
         let raw_attribute =
             self.read_byte_from_hardware_register(oam_base_address + sprite_index + 3);
@@ -474,7 +480,7 @@ impl PictureProcessingUnit {
         let win_cursor_y = self.internal_window_line_counter;
 
         for screen_col in 0..resolution::SCREEN_W as u8 {
-            let mut win_cursor_x = 0 - (self.wx_register as i8 - 7) + screen_col as i8;
+            let win_cursor_x = 0 - (self.wx_register as i8 - 7) + screen_col as i8;
 
             if win_cursor_x < 0 {
                 continue;
@@ -494,7 +500,67 @@ impl PictureProcessingUnit {
     }
 
     fn draw_sprite_scanline(&mut self) {
-        todo!();
+        let sprite_high = self.lcd_control_register.get_sprite_high_size();
+        let line = self.ly_register;
+
+        for sprite in self.sprite_buffer.iter() {
+            let sprite_y = if sprite.attribute.yflip {
+                (sprite_high as i8 - 1 - (line as i8 - sprite.y_position as i8)) as u8 as u16
+            } else {
+                (line as i8 - sprite.y_position as i8) as u8 as u16
+            };
+
+            let sprite_data_address = 0x8000 + (sprite.tile_index as u16 * 16) + (sprite_y * 2);
+
+            let low_byte = self.read_byte_from_hardware_register(sprite_data_address);
+            let high_byte = self.read_byte_from_hardware_register(sprite_data_address + 1);
+
+            let pallete = if sprite.attribute.dmg_palette {
+                self.obp0_register
+            } else {
+                self.obp1_register
+            };
+
+            // Walk through each pixel to be drawn.
+            for pixel_col in 0..8 as u8 {
+                if sprite.x_position + pixel_col >= resolution::SCREEN_W as u8 {
+                    continue;
+                }
+
+                // Check  BG vs. OBJ priority
+                if !self.lcd_control_register.bg_and_window_enable
+                    && sprite.attribute.priority
+                    && self.out_frame_buffer[line as usize]
+                        [(sprite.x_position + pixel_col) as usize]
+                        == [0, 0, 0]
+                {
+                    continue;
+                }
+
+                // Number of pixel (0-7) of this row of the sprite. Might be horizontally flipped.
+                let pixel_num = if sprite.attribute.xflip {
+                    7 - pixel_col
+                } else {
+                    pixel_col
+                };
+
+                let mut pixel = Pixel2bpp {
+                    low_byte,
+                    high_byte,
+                    pixel_bit_activation: pixel_num,
+                };
+
+                let color_id = pixel.get_color_id();
+                let color = pallete.get_color(color_id);
+
+                if pallete.is_transparent(color) {
+                    continue;
+                }
+
+                self.out_frame_buffer[line as usize][(sprite.x_position + pixel_col) as usize] =
+                    [color as u8, color as u8, color as u8];
+            }
+        }
     }
 
     fn enter_to_new_mode(&mut self, ppu_state: u8, interrupt_needed: bool) {
