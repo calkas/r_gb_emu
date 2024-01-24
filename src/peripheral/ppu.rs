@@ -402,17 +402,6 @@ impl PictureProcessingUnit {
         }
     }
 
-    fn draw_scanline(&mut self) {
-        if self.lcd_control_register.bg_and_window_enable {
-            self.draw_background_scanline();
-            self.draw_window_scanline();
-        }
-
-        if self.lcd_control_register.obj_enable {
-            self.draw_sprite_scanline();
-        }
-    }
-
     fn get_tile_pixel(&mut self, cursor_x: u8, cursor_y: u8, tile_map_address: u16) -> Pixel2bpp {
         // 32x32 grid of 8x8 pixel tiles
         let tile_grid_map_row_num = cursor_y / 8;
@@ -527,6 +516,17 @@ impl PictureProcessingUnit {
             }
         } else {
             self.lcd_stat_register.lyc_flag = false;
+        }
+    }
+
+    fn draw_scanline(&mut self) {
+        if self.lcd_control_register.bg_and_window_enable {
+            self.draw_background_scanline();
+            self.draw_window_scanline();
+        }
+
+        if self.lcd_control_register.obj_enable {
+            self.draw_sprite_scanline();
         }
     }
 }
@@ -702,7 +702,7 @@ mod uint_test {
         assert_eq!(fsm::PpuState::HBlankMode0, ppu.ppu_fsm);
         assert_eq!(ppu.lcd_stat_register.ppu_mode, 0);
 
-        ppu.lyc_register = 1;
+        ppu.lyc_register = 0;
         ppu.lcd_stat_register.enable_ly_interrupt = true;
         ppu.next_to(204);
         assert_eq!(1, ppu.ly_register);
