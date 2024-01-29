@@ -1,3 +1,4 @@
+use self::fsm::PpuState;
 use self::lcd_monochrome::{Color, PaletteRegister, PalleteMode, Pixel2bpp};
 use self::sprite::{Attribute, Sprite};
 use super::{HardwareAccessible, IoWorkingCycle};
@@ -175,6 +176,12 @@ mod lcd_monochrome {
         Black = 0x00,
     }
 
+    impl Color {
+        pub fn rgb(self) -> (u8, u8, u8) {
+            (self as u8, self as u8, self as u8)
+        }
+    }
+
     #[derive(Clone, Copy)]
     pub struct PaletteRegister {
         pub data: u8,
@@ -247,10 +254,10 @@ mod fsm {
 
 mod sprite {
     pub struct Attribute {
-        pub priority: bool, // Bit7   OBJ-to-BG Priority (0=OBJ Above BG, 1=OBJ Behind BG color 1-3)
-        pub yflip: bool,    // Bit6   Y flip          (0=Normal, 1=Vertically mirrored)
-        pub xflip: bool,    // Bit5   X flip          (0=Normal, 1=Horizontally mirrored)
-        pub dmg_palette: bool, // Bit4   Palette number  **Non CGB Mode Only** (0=OBP0, 1=OBP1)
+        pub priority: bool, // Bit7 OBJ-to-BG Priority (0=OBJ Above BG, 1=OBJ Behind BG color 1-3)
+        pub yflip: bool,    // Bit6 Y flip          (0=Normal, 1=Vertically mirrored)
+        pub xflip: bool,    // Bit5 X flip          (0=Normal, 1=Horizontally mirrored)
+        pub dmg_palette: bool, // Bit4 Palette number  **Non CGB Mode Only** (0=OBP0, 1=OBP1)
     }
 
     impl From<u8> for Attribute {
@@ -294,7 +301,7 @@ pub struct PictureProcessingUnit {
     pub vblank_interrupt_req: bool,
     pub lcd_interrupt_req: bool,
     //..::Internal::..
-    ppu_fsm: fsm::PpuState,
+    ppu_fsm: PpuState,
     internal_scan_line_counter: u32,
     internal_window_line_counter: u8,
     sprite_buffer: Vec<Sprite>,
@@ -323,7 +330,7 @@ impl PictureProcessingUnit {
             vblank_interrupt_req: false,
             lcd_interrupt_req: false,
             //..::Internal::..
-            ppu_fsm: fsm::PpuState::new(),
+            ppu_fsm: PpuState::new(),
             internal_scan_line_counter: 0,
             internal_window_line_counter: 0,
             sprite_buffer: Vec::new(),
@@ -337,12 +344,6 @@ impl PictureProcessingUnit {
             self.lcd_stat_register.lyc_flag = true;
             self.lcd_stat_register.enable_ly_interrupt = true;
         }
-    }
-
-    fn store_pixel_to_output_buffer(&mut self, row: u8, col: u8, color: Color) {
-        let color_val = color as u8;
-        let rgb = (color_val, color_val, color_val);
-        self.out_frame_buffer[row as usize][col as usize] = [rgb.0, rgb.1, rgb.2];
     }
 
     fn get_tile_data_address(&self, tile_number: u8) -> u16 {
@@ -403,7 +404,6 @@ impl PictureProcessingUnit {
             if line < sprite.y_position || line >= sprite.y_position + sprite_high_size {
                 continue;
             }
-
             self.sprite_buffer.push(sprite);
         }
     }
@@ -461,11 +461,10 @@ impl PictureProcessingUnit {
             let mut pixel = self.get_tile_pixel(bg_cursor_x, bg_cursor_y, tile_map_address);
             let color_id = pixel.get_color_id();
 
-            self.store_pixel_to_output_buffer(
-                self.ly_register,
-                screen_col,
-                self.bgp_register.get_color(color_id),
-            );
+            let color = self.bgp_register.get_color(color_id);
+
+            self.out_frame_buffer[self.ly_register as usize][screen_col as usize] =
+                [color.rgb().0, color.rgb().1, color.rgb().2];
         }
     }
 
@@ -489,11 +488,10 @@ impl PictureProcessingUnit {
             let mut pixel = self.get_tile_pixel(win_cursor_x as u8, win_cursor_y, tile_map_address);
             let color_id = pixel.get_color_id();
 
-            self.store_pixel_to_output_buffer(
-                self.ly_register,
-                screen_col,
-                self.bgp_register.get_color(color_id),
-            );
+            let color = self.bgp_register.get_color(color_id);
+
+            self.out_frame_buffer[self.ly_register as usize][screen_col as usize] =
+                [color.rgb().0, color.rgb().1, color.rgb().2];
         }
 
         self.internal_window_line_counter += 1;
@@ -510,7 +508,8 @@ impl PictureProcessingUnit {
                 (line as i8 - sprite.y_position as i8) as u8 as u16
             };
 
-            let sprite_data_address = 0x8000 + (sprite.tile_index as u16 * 16) + (sprite_y * 2);
+            let sprite_data_address =
+                *address::VIDEO_RAM.start() + (sprite.tile_index as u16 * 16) + (sprite_y * 2);
 
             let low_byte = self.read_byte_from_hardware_register(sprite_data_address);
             let high_byte = self.read_byte_from_hardware_register(sprite_data_address + 1);
@@ -558,7 +557,7 @@ impl PictureProcessingUnit {
                 }
 
                 self.out_frame_buffer[line as usize][(sprite.x_position + pixel_col) as usize] =
-                    [color as u8, color as u8, color as u8];
+                    [color.rgb().0, color.rgb().1, color.rgb().2];
             }
         }
     }
@@ -567,7 +566,7 @@ impl PictureProcessingUnit {
         if self.lcd_stat_register.ppu_mode != ppu_state {
             self.lcd_stat_register.ppu_mode = ppu_state;
 
-            if ppu_state == fsm::PpuState::VBlankMode1 as u8 {
+            if ppu_state == PpuState::VBlankMode1 as u8 {
                 self.vblank_interrupt_req = true;
             }
             self.lcd_interrupt_req = interrupt_needed;
@@ -673,9 +672,9 @@ impl IoWorkingCycle for PictureProcessingUnit {
         // ..:: All scanlines done "One frame" ::..
         // Mode_2 (80 dots) + Mode_3 (172 dots) + Mode_0 (204 dots) + Mode_1 (10 *456) = 70224 dosts
         match state {
-            fsm::PpuState::OamScanMode2 => {
+            PpuState::OamScanMode2 => {
                 self.enter_to_new_mode(
-                    fsm::PpuState::OamScanMode2 as u8,
+                    PpuState::OamScanMode2 as u8,
                     self.lcd_stat_register.enable_mode_2_interrupt,
                 );
                 if self.internal_scan_line_counter >= 80 {
@@ -684,17 +683,17 @@ impl IoWorkingCycle for PictureProcessingUnit {
                     self.ppu_fsm = self.ppu_fsm.next();
                 }
             }
-            fsm::PpuState::DrawingPixelsMode3 => {
-                self.enter_to_new_mode(fsm::PpuState::DrawingPixelsMode3 as u8, false);
+            PpuState::DrawingPixelsMode3 => {
+                self.enter_to_new_mode(PpuState::DrawingPixelsMode3 as u8, false);
 
                 if self.internal_scan_line_counter >= 172 {
                     self.internal_scan_line_counter -= 172;
                     self.ppu_fsm = self.ppu_fsm.next();
                 }
             }
-            fsm::PpuState::HBlankMode0 => {
+            PpuState::HBlankMode0 => {
                 self.enter_to_new_mode(
-                    fsm::PpuState::HBlankMode0 as u8,
+                    PpuState::HBlankMode0 as u8,
                     self.lcd_stat_register.enable_mode_0_interrupt,
                 );
 
@@ -711,13 +710,13 @@ impl IoWorkingCycle for PictureProcessingUnit {
                         self.ppu_fsm = self.ppu_fsm.next();
                     } else {
                         //go back to sprite search for next line
-                        self.ppu_fsm = fsm::PpuState::OamScanMode2;
+                        self.ppu_fsm = PpuState::OamScanMode2;
                     }
                 }
             }
-            fsm::PpuState::VBlankMode1 => {
+            PpuState::VBlankMode1 => {
                 self.enter_to_new_mode(
-                    fsm::PpuState::VBlankMode1 as u8,
+                    PpuState::VBlankMode1 as u8,
                     self.lcd_stat_register.enable_mode_1_interrupt,
                 );
 
@@ -753,19 +752,19 @@ mod uint_test {
 
         //Switch to Mode 2
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(PpuState::OamScanMode2, ppu.ppu_fsm);
         assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
         ppu.next_to(80);
 
         //Switch to Mode 3
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::DrawingPixelsMode3, ppu.ppu_fsm);
+        assert_eq!(PpuState::DrawingPixelsMode3, ppu.ppu_fsm);
         assert_eq!(3, ppu.lcd_stat_register.ppu_mode);
         ppu.next_to(172);
 
         //Switch to Mode 0
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::HBlankMode0, ppu.ppu_fsm);
+        assert_eq!(PpuState::HBlankMode0, ppu.ppu_fsm);
         assert_eq!(ppu.lcd_stat_register.ppu_mode, 0);
 
         ppu.lyc_register = 0;
@@ -777,7 +776,7 @@ mod uint_test {
 
         //Switch to Mode 2
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(PpuState::OamScanMode2, ppu.ppu_fsm);
         assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
     }
 
@@ -794,25 +793,25 @@ mod uint_test {
 
         //Switch to Mode 2
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(PpuState::OamScanMode2, ppu.ppu_fsm);
         assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
         ppu.next_to(80);
 
         //Switch to Mode 3
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::DrawingPixelsMode3, ppu.ppu_fsm);
+        assert_eq!(PpuState::DrawingPixelsMode3, ppu.ppu_fsm);
         assert_eq!(3, ppu.lcd_stat_register.ppu_mode);
         ppu.next_to(172);
 
         //Switch to Mode 0
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::HBlankMode0, ppu.ppu_fsm);
+        assert_eq!(PpuState::HBlankMode0, ppu.ppu_fsm);
         assert_eq!(ppu.lcd_stat_register.ppu_mode, 0);
         ppu.next_to(204);
 
         //Switch to Mode 1
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::VBlankMode1, ppu.ppu_fsm);
+        assert_eq!(PpuState::VBlankMode1, ppu.ppu_fsm);
         assert_eq!(ppu.lcd_stat_register.ppu_mode, 1);
         assert!(ppu.vblank_interrupt_req == true);
 
@@ -825,7 +824,7 @@ mod uint_test {
 
         //Switch to Mode 2
         ppu.next_to(0);
-        assert_eq!(fsm::PpuState::OamScanMode2, ppu.ppu_fsm);
+        assert_eq!(PpuState::OamScanMode2, ppu.ppu_fsm);
         assert_eq!(2, ppu.lcd_stat_register.ppu_mode);
     }
     #[test]
