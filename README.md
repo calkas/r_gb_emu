@@ -24,3 +24,13 @@ programming](http://www.codeslinger.co.uk/files/emu.pdf)
 
 ### Libs
 - [minifb](https://crates.io/crates/minifb)
+
+
+### Debugging
+- [Gameboy doctor](https://github.com/robert/gameboy-doctor?tab=readme-ov-file)
+
+Once you have your logfile (by running `07-jr,jp,call,ret,rst.gb`), feed it into Gameboy Doctor like so:
+
+```bash
+./gameboy-doctor cpu_log.log  cpu_instrs 7
+```
