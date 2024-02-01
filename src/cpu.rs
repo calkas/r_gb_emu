@@ -664,12 +664,12 @@ impl Cpu {
                     &[0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6F],
                     opcode,
                 );
-                load::ld(&mut self.register.h, register_value);
+                load::ld(&mut self.register.l, register_value);
                 self.cycles = 4;
             }
             0x6E => {
                 let value = self.iommu.borrow_mut().read_byte(self.register.get_hl());
-                load::ld(&mut self.register.e, value);
+                load::ld(&mut self.register.l, value);
                 self.cycles = 8;
             }
             // LD(HL), reg
