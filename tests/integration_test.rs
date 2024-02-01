@@ -3,34 +3,40 @@ use r_gb_emu::iommu::IOMMU;
 use r_gb_emu::peripheral::cartridge::Cartridge;
 use r_gb_emu::peripheral::joypad::JoypadInput;
 use r_gb_emu::peripheral::ppu::PictureProcessingUnit;
+use r_gb_emu::GameBoyEmulator;
 use std::cell::RefCell;
+use std::fs;
+use std::fs::File;
+use std::io::{Error, Write};
+use std::path::Path;
 use std::rc::Rc;
 
 #[test]
 fn cpu_instruction_behavior_test() {
-    let cartridge = Rc::new(RefCell::new(Cartridge::default()));
-    let ppu = Rc::new(RefCell::new(PictureProcessingUnit::new()));
-    let joypad = Rc::new(RefCell::new(JoypadInput::default()));
-
-    cartridge.borrow_mut().load("roms/cpu_instrs.gb");
-
-    let iommu = Rc::new(RefCell::new(IOMMU::new(
-        cartridge.clone(),
-        ppu.clone(),
-        joypad.clone(),
-    )));
-
-    let mut cpu = Cpu::new(iommu.clone());
-    cpu.init();
+    let mut gameboy = GameBoyEmulator::new();
+    gameboy.load_cartridge("roms/07-jr,jp,call,ret,rst.gb");
 
     let mut sum_of_cycles = 0;
 
-    //63802933 * 4
-    while sum_of_cycles < 10000 {
-        sum_of_cycles += cpu.process();
+    let path = Path::new("cpu_log.log");
+
+    let _ = fs::remove_file(path);
+
+    let mut output = match File::create(path) {
+        Err(why) => panic!("couldn't create {}: {}", path.display(), why),
+        Ok(file) => file,
+    };
+
+    for _ in 1..100000 {
+        let _ = output.write(gameboy.get_log().as_bytes());
+        sum_of_cycles += gameboy.emulation_step();
     }
 
-    for i in iommu.borrow_mut().serial.test_out_data.iter() {
-        print!("{}", *i)
-    }
+    println!("cycles {}", sum_of_cycles);
+    println!("Test output: {}", gameboy.serial_out());
+
+    // //63802933 * 4
+    // while sum_of_cycles < 200 {
+    //     sum_of_cycles += gameboy.emulation_step();
+    // }
 }

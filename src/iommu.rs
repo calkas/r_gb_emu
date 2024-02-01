@@ -1,3 +1,4 @@
+use super::constants::gb_memory_map::address::io_hardware_register;
 use super::constants::gb_memory_map::{address, memory};
 use crate::peripheral::{
     cartridge::Cartridge, interrupt_controller::InterruptController, joypad::JoypadInput,
@@ -35,6 +36,50 @@ impl IOMMU {
             joypad: input_controller,
         }
     }
+    pub fn init(&mut self) {
+        self.write_byte(io_hardware_register::JOYPAD_INPUT, 0xCF);
+        self.write_byte(io_hardware_register::SERIAL_DATA, 0);
+        self.write_byte(io_hardware_register::SERIAL_CONTROL, 0x7E);
+        self.write_byte(io_hardware_register::TIMER_DIV, 0x18);
+        self.write_byte(io_hardware_register::TIMER_TIMA, 0);
+        self.write_byte(io_hardware_register::TIMER_TMA, 0);
+        self.write_byte(io_hardware_register::TIMER_TAC, 0xF8);
+        self.write_byte(address::INTF_REGISTER, 0xE1);
+        // self.write_byte(0xFF10, 0x80);
+        // self.write_byte(0xFF11, 0xBF);
+        // self.write_byte(0xFF12, 0xF3);
+        // self.write_byte(0xFF13, 0xFF);
+        // self.write_byte(0xFF14, 0xBF);
+        // self.write_byte(0xFF16, 0x3F);
+        // self.write_byte(0xFF17, 0);
+        // self.write_byte(0xFF18, 0xFF);
+        // self.write_byte(0xFF19, 0xBF);
+        // self.write_byte(0xFF1A, 0x7F);
+        // self.write_byte(0xFF1B, 0xFF);
+        // self.write_byte(0xFF1C, 0x9F);
+        // self.write_byte(0xFF1D, 0xFF);
+        // self.write_byte(0xFF1E, 0xBF);
+        // self.write_byte(0xFF20, 0xFF);
+        // self.write_byte(0xFF21, 0);
+        // self.write_byte(0xFF22, 0);
+        // self.write_byte(0xFF23, 0xBF);
+        // self.write_byte(0xFF24, 0x77);
+        // self.write_byte(0xFF25, 0xF3);
+        // self.write_byte(0xFF26, 0xF1);
+        self.write_byte(io_hardware_register::LCD_CONTROL, 0x91);
+        self.write_byte(io_hardware_register::LCD_STATUS, 0x81);
+        self.write_byte(io_hardware_register::SCY, 0);
+        self.write_byte(io_hardware_register::SCX, 0);
+        //self.write_byte(io_hardware_register::LY, 0x91);
+        self.write_byte(io_hardware_register::LYC, 0);
+        self.write_byte(io_hardware_register::OAM_DMA, 0xFF);
+        self.write_byte(io_hardware_register::BGP, 0xFC);
+        self.write_byte(io_hardware_register::OBP0, 0xFF);
+        self.write_byte(io_hardware_register::OBP1, 0xFF);
+        self.write_byte(io_hardware_register::WY, 0);
+        self.write_byte(io_hardware_register::WX, 0);
+        self.write_byte(address::INTE_REGISTER, 0);
+    }
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
             rom_bank_0_address if address::CARTRIDGE_ROM_BANK_0.contains(&rom_bank_0_address) => {
@@ -65,7 +110,7 @@ impl IOMMU {
                 if address::WORKING_RAM_BANK_1_7.contains(&wram_address_bank_1_7)
                     | address::ECHO_RAM_BANK_1_7.contains(&wram_address_bank_1_7) =>
             {
-                self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK]
+                self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK | 0x1000]
             }
 
             voam_address if address::OAM.contains(&voam_address) => self
@@ -82,7 +127,7 @@ impl IOMMU {
                 self.hram[adjusted_adr]
             }
 
-            address::io_hardware_register::JOYPAD_INPUT => self
+            io_hardware_register::JOYPAD_INPUT => self
                 .joypad
                 .borrow_mut()
                 .read_byte_from_hardware_register(address),
@@ -95,17 +140,21 @@ impl IOMMU {
                 self.timer.read_byte_from_hardware_register(timer_address)
             }
 
-            graphics_address if address::HARDWARE_IO_GRAPHICS.contains(&graphics_address) => self
-                .ppu
-                .borrow_mut()
-                .read_byte_from_hardware_register(graphics_address),
+            graphics_address
+                if address::HARDWARE_IO_GRAPHICS_1.contains(&graphics_address)
+                    | address::HARDWARE_IO_GRAPHICS_2.contains(&graphics_address) =>
+            {
+                self.ppu
+                    .borrow_mut()
+                    .read_byte_from_hardware_register(graphics_address)
+            }
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
                 .read_byte_from_hardware_register(address),
 
             _ => {
-                println!("Reading from unsupported addres: {:#06x?}", address);
+                //println!("Reading from unsupported addres: {:#06x?}", address);
                 memory::DEFAULT_INIT_VALUE
             }
         }
@@ -141,7 +190,8 @@ impl IOMMU {
                 if address::WORKING_RAM_BANK_1_7.contains(&wram_address_bank_1_7)
                     | address::ECHO_RAM_BANK_1_7.contains(&wram_address_bank_1_7) =>
             {
-                self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK] = data;
+                self.wram[wram_address_bank_1_7 as usize & memory::WRAM_ADDRESS_MASK | 0x1000] =
+                    data;
             }
 
             voam_address if address::OAM.contains(&voam_address) => self
@@ -156,7 +206,7 @@ impl IOMMU {
                 self.hram[adjusted_adr] = data;
             }
 
-            address::io_hardware_register::JOYPAD_INPUT => self
+            io_hardware_register::JOYPAD_INPUT => self
                 .joypad
                 .borrow_mut()
                 .write_byte_to_hardware_register(address, data),
@@ -169,23 +219,27 @@ impl IOMMU {
                 self.timer
                     .write_byte_to_hardware_register(timer_address, data);
             }
+            //FIXME
+            io_hardware_register::OAM_DMA => self.oam_dma_transfer(data),
 
-            address::io_hardware_register::OAM_DMA => self.oam_dma_transfer(data),
-
-            graphics_address if address::HARDWARE_IO_GRAPHICS.contains(&graphics_address) => self
-                .ppu
-                .borrow_mut()
-                .write_byte_to_hardware_register(graphics_address, data),
+            graphics_address
+                if address::HARDWARE_IO_GRAPHICS_1.contains(&graphics_address)
+                    | address::HARDWARE_IO_GRAPHICS_2.contains(&graphics_address) =>
+            {
+                self.ppu
+                    .borrow_mut()
+                    .write_byte_to_hardware_register(graphics_address, data)
+            }
 
             address::INTF_REGISTER | address::INTE_REGISTER => self
                 .isr_controller
                 .write_byte_to_hardware_register(address, data),
 
             _ => {
-                println!(
-                    "Writing to unsupported addres: {:#06x?} data = {:#06x?}",
-                    address, data
-                );
+                // println!(
+                //     "Writing to unsupported addres: {:#06x?} data = {:#06x?}",
+                //     address, data
+                // );
             }
         }
     }
@@ -229,6 +283,7 @@ impl IOMMU {
     }
 
     fn oam_dma_transfer(&mut self, hi_source_address: u8) {
+        println!("DMA Transfer");
         let base_source_address = (hi_source_address as u16).rotate_left(8);
         let base_destination_address = *address::OAM.start();
         for i in 0..memory::VOAM_SIZE as u16 {

@@ -44,6 +44,9 @@ pub mod gb_memory_map {
         pub const HARDWARE_IO_TIMER: RangeInclusive<u16> = 0xFF04..=0xFF07;
         pub const HARDWARE_IO_GRAPHICS: RangeInclusive<u16> = 0xFF40..=0xFF4B;
 
+        pub const HARDWARE_IO_GRAPHICS_1: RangeInclusive<u16> = 0xFF40..=0xFF45;
+        pub const HARDWARE_IO_GRAPHICS_2: RangeInclusive<u16> = 0xFF47..=0xFF4B;
+
         //pub const HARDWARE_IO_REGISTERS_1: RangeInclusive<u16> = 0xFF00..=0xFF0E;
         //pub const HARDWARE_IO_REGISTERS_2: RangeInclusive<u16> = 0xFF10..=0xFF7F;
         pub const HIGH_RAM: RangeInclusive<u16> = 0xFF80..=0xFFFE;

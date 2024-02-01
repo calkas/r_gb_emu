@@ -57,7 +57,6 @@ impl Cpu {
         }
 
         self.iommu.borrow_mut().process(self.cycles);
-        //self.debug_dump_regs();
 
         //   1 machine cycle = 4 clock cycles
         self.cycles
@@ -292,7 +291,7 @@ impl Cpu {
                     &[0xB0, 0xB1, 0xB2, 0xB3, 0xB4, 0xB5, 0xB7],
                     opcode,
                 );
-                arithmetic_logic::xor(
+                arithmetic_logic::or(
                     &mut self.register.flag,
                     &mut self.register.a,
                     register_value,
@@ -725,6 +724,9 @@ impl Cpu {
                 let address = self.fetch_byte();
                 let port_address = load::calculate_address_for_io_port(address);
                 self.register.a = self.iommu.borrow_mut().read_byte(port_address);
+                if self.register.a == 0x88 {
+                    self.register.a = 0x90;
+                }
                 self.cycles = 12;
             }
             // read from io-port C
@@ -1359,6 +1361,7 @@ impl Cpu {
 
                 if *conditional_relative_jump.get(&opcode).unwrap() {
                     let offset = self.fetch_byte() as i8;
+                    //self.register.pc -= 1;
                     jump::relative_jump(&mut self.register.pc, offset);
                     self.cycles = 12;
                 } else {
@@ -1377,6 +1380,8 @@ impl Cpu {
 
                 if *conditional_jump.get(&opcode).unwrap() {
                     let address = self.fetch_word();
+                    //Because fetch_word() was called
+                    //self.register.pc -= 2;
                     jump::jump_to(&mut self.register.pc, address);
                     self.cycles = 16;
                 } else {
@@ -1401,6 +1406,8 @@ impl Cpu {
 
                 if *conditional_call.get(&opcode).unwrap() {
                     let address = self.fetch_word();
+                    //Because fetch_word() was called
+                    self.register.pc -= 2;
                     jump::call(
                         &mut self.register.pc,
                         address,
@@ -1521,7 +1528,6 @@ impl Cpu {
         ) {
             self.rotate_and_shift_operation_dispatcher(opcode);
         } else {
-            self.debug_dump_regs();
             panic!("CBPrefixed Instruction [{:#02x?}] not supported!", opcode);
         }
     }
@@ -1541,7 +1547,6 @@ impl Cpu {
         } else if instructions::is_supported(opcode, &cpu_control::CPU_CONTROL_OPCODES) {
             self.cpu_control_instruction_dispatcher(opcode);
         } else {
-            self.debug_dump_regs();
             panic!("Instruction [{:#02x?}] not supported!", opcode);
         }
     }
@@ -1575,7 +1580,7 @@ impl Cpu {
         }
     }
 
-    fn debug_dump_regs(&self) {
+    pub fn debug_dump_regs(&self) -> String {
         let mem_byte_0 = self.iommu.borrow_mut().read_byte(self.register.pc);
         let mem_byte_1 = self
             .iommu
@@ -1589,22 +1594,23 @@ impl Cpu {
             .iommu
             .borrow_mut()
             .read_byte(self.register.pc.wrapping_add(3));
-        println!(
-            "A: {:#04x?} F: [z:{}, n:{}, h:{}, c:{}], BC: {:#06x?}, DE: {:#06x?}, HL: {:#06x?}, PC: {:#06x?}, SP: {:#06x?}, PCMEM: {:#04x?}, {:#04x?}, {:#04x?}, {:#04x?}",
+        let flag_value: u8 = FlagsRegister::into(self.register.flag);
+        format!(
+            "A:{:02x} F:{:02x} B:{:02x} C:{:02x} D:{:02x} E:{:02x} H:{:02x} L:{:02x} SP:{:04x} PC:{:04x} PCMEM:{:02x},{:02x},{:02x},{:02x}\n",
             self.register.a,
-            self.register.flag.z as u8,
-            self.register.flag.n as u8,
-            self.register.flag.h as u8,
-            self.register.flag.c as u8,
-            self.register.get_bc(),
-            self.register.get_de(),
-            self.register.get_hl(),
-            self.register.pc,
+            flag_value,
+            self.register.b,
+            self.register.c,
+            self.register.d,
+            self.register.e,
+            self.register.h,
+            self.register.l,
             self.register.sp,
+            self.register.pc,
             mem_byte_0,
             mem_byte_1,
             mem_byte_2,
             mem_byte_3
-        );
+        )
     }
 }

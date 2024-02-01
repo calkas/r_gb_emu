@@ -26,7 +26,6 @@ impl SerialDataTransfer {
 
 impl HardwareAccessible for SerialDataTransfer {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
-        println!("[Serial][Read] address = {:#06x?}", address);
         match address {
             address::io_hardware_register::SERIAL_DATA => self.data,
             address::io_hardware_register::SERIAL_CONTROL => self.control,
@@ -38,10 +37,6 @@ impl HardwareAccessible for SerialDataTransfer {
     }
 
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
-        println!(
-            "[Serial][Write] address = {:#06x?} data = {:#06x?}",
-            address, data
-        );
         match address {
             address::io_hardware_register::SERIAL_DATA => {
                 self.data = data;

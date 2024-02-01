@@ -61,14 +61,14 @@ impl LcdControlRegister {
 impl std::convert::From<u8> for LcdControlRegister {
     fn from(value: u8) -> Self {
         Self {
-            lcd_enable: (value.rotate_left(7) & 1) == 1,
-            window_tile_map_area: (value.rotate_left(6) & 1) == 1,
-            window_enable: (value.rotate_left(5) & 1) == 1,
-            bg_window_tile_data_area: (value.rotate_left(4) & 1) == 1,
-            bg_tile_map_area: (value.rotate_left(3) & 1) == 1,
-            obj_size: (value.rotate_left(2) & 1) == 1,
-            obj_enable: (value.rotate_left(1) & 1) == 1,
-            bg_and_window_enable: (value.rotate_left(0) & 1) == 1,
+            lcd_enable: (value.rotate_right(7) & 1) == 1,
+            window_tile_map_area: (value.rotate_right(6) & 1) == 1,
+            window_enable: (value.rotate_right(5) & 1) == 1,
+            bg_window_tile_data_area: (value.rotate_right(4) & 1) == 1,
+            bg_tile_map_area: (value.rotate_right(3) & 1) == 1,
+            obj_size: (value.rotate_right(2) & 1) == 1,
+            obj_enable: (value.rotate_right(1) & 1) == 1,
+            bg_and_window_enable: (value.rotate_right(0) & 1) == 1,
         }
     }
 }
@@ -128,11 +128,11 @@ struct LcdStatusRegister {
 impl std::convert::From<u8> for LcdStatusRegister {
     fn from(value: u8) -> Self {
         Self {
-            enable_ly_interrupt: (value.rotate_left(6) & 1) == 1,
-            enable_mode_2_interrupt: (value.rotate_left(5) & 1) == 1,
-            enable_mode_1_interrupt: (value.rotate_left(4) & 1) == 1,
-            enable_mode_0_interrupt: (value.rotate_left(3) & 1) == 1,
-            lyc_flag: (value.rotate_left(2) & 1) == 1,
+            enable_ly_interrupt: (value.rotate_right(6) & 1) == 1,
+            enable_mode_2_interrupt: (value.rotate_right(5) & 1) == 1,
+            enable_mode_1_interrupt: (value.rotate_right(4) & 1) == 1,
+            enable_mode_0_interrupt: (value.rotate_right(3) & 1) == 1,
+            lyc_flag: (value.rotate_right(2) & 1) == 1,
             ppu_mode: value & 0x03,
         }
     }
@@ -412,7 +412,7 @@ impl PictureProcessingUnit {
         // 32x32 grid of 8x8 pixel tiles
         let tile_grid_map_row_num = cursor_y / 8;
         let tile_grid_map_col_num = cursor_x / 8;
-        let tile_coordinates = (tile_grid_map_row_num * 32 + tile_grid_map_col_num) as u16;
+        let tile_coordinates = tile_grid_map_row_num as u16 * 32 + tile_grid_map_col_num as u16;
 
         let tile_number =
             self.read_byte_from_hardware_register(tile_map_address + tile_coordinates);
@@ -462,7 +462,6 @@ impl PictureProcessingUnit {
             let color_id = pixel.get_color_id();
 
             let color = self.bgp_register.get_color(color_id);
-
             self.out_frame_buffer[self.ly_register as usize][screen_col as usize] =
                 [color.rgb().0, color.rgb().1, color.rgb().2];
         }
@@ -701,11 +700,13 @@ impl IoWorkingCycle for PictureProcessingUnit {
                     self.internal_scan_line_counter -= 204;
 
                     self.check_conincidence_flag();
-                    self.draw_scanline();
 
-                    self.ly_register += 1;
+                    if self.ly_register < 144 {
+                        self.draw_scanline();
+                        self.ly_register += 1;
+                    }
 
-                    if self.ly_register == 144 {
+                    if self.ly_register >= 144 {
                         //go to vblank
                         self.ppu_fsm = self.ppu_fsm.next();
                     } else {
@@ -829,19 +830,19 @@ mod uint_test {
     }
     #[test]
     fn lcd_control_register_convert_test() {
-        let mut register = LcdControlRegister::from(0xAA);
+        let mut register = LcdControlRegister::from(0x91);
         assert!(register.lcd_enable == true);
         assert!(register.window_tile_map_area == false);
-        assert!(register.window_enable == true);
-        assert!(register.bg_window_tile_data_area == false);
-        assert!(register.bg_tile_map_area == true);
+        assert!(register.window_enable == false);
+        assert!(register.bg_window_tile_data_area == true);
+        assert!(register.bg_tile_map_area == false);
         assert!(register.obj_size == false);
-        assert!(register.obj_enable == true);
-        assert!(register.bg_and_window_enable == false);
+        assert!(register.obj_enable == false);
+        assert!(register.bg_and_window_enable == true);
 
-        register.window_tile_map_area = true;
-        register.bg_window_tile_data_area = true;
-        assert_eq!(0xFA as u8, LcdControlRegister::into(register));
+        register.obj_size = true;
+        register.obj_enable = true;
+        assert_eq!(151 as u8, LcdControlRegister::into(register));
     }
 
     #[test]
