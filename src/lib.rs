@@ -52,6 +52,8 @@ impl GameBoyEmulator {
         self.cpu.process()
     }
 
+    /// # get_log
+    /// For debug purpose to feed Gameboy Doctor in special format
     pub fn get_log(&mut self) -> String {
         self.cpu.debug_dump_regs().to_uppercase()
     }

@@ -724,9 +724,6 @@ impl Cpu {
                 let address = self.fetch_byte();
                 let port_address = load::calculate_address_for_io_port(address);
                 self.register.a = self.iommu.borrow_mut().read_byte(port_address);
-                if self.register.a == 0x88 {
-                    self.register.a = 0x90;
-                }
                 self.cycles = 12;
             }
             // read from io-port C
