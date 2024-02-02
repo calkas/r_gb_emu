@@ -2,10 +2,8 @@ use self::fsm::PpuState;
 use self::lcd_monochrome::{Color, PaletteRegister, PalleteMode, Pixel2bpp};
 use self::sprite::{Attribute, Sprite};
 use super::{HardwareAccessible, IoWorkingCycle};
-use crate::constants::{
-    gb_memory_map::{address, address::io_hardware_register, memory},
-    resolution,
-};
+use crate::constants::gb_memory_map::{address, address::io_hardware_register, memory};
+use crate::emulator_constants::resolution;
 
 mod graphics {
     pub const MAX_NUMBER_OF_SPRITES: u16 = 40;

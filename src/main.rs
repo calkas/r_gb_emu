@@ -1,10 +1,12 @@
 use minifb::{Key, Window, WindowOptions};
+use r_gb_emu::emulator_constants::{resolution, GameBoyKeys};
+use r_gb_emu::GameBoyEmulator;
 
 fn main() {
     println!("\x1b[94m=========================\n..::Gameboy Emulator::..\n=========================\x1b[0m");
 
-    const WIDTH: usize = 160;
-    const HEIGHT: usize = 144;
+    const WIDTH: usize = resolution::SCREEN_W;
+    const HEIGHT: usize = resolution::SCREEN_H;
 
     let frame_buffer: Vec<u32> = vec![0x348feb; WIDTH * HEIGHT];
 

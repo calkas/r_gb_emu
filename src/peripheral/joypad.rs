@@ -1,5 +1,6 @@
 use super::HardwareAccessible;
 use crate::constants::gb_memory_map::address;
+use crate::emulator_constants::GameBoyKeys;
 
 mod joypad_state_register {
     pub const ALL_KEYS_NOT_PRESSED: u8 = 0xFF;
@@ -11,17 +12,6 @@ mod joypad_state_register {
     pub const KEY_3: u8 = 0xF7;
 }
 
-#[derive(PartialEq, Clone, Copy)]
-pub enum GameBoyKeys {
-    Right,
-    Left,
-    Down,
-    Up,
-    A,
-    B,
-    Select,
-    Start,
-}
 pub struct JoypadInput {
     data_register: u8,
     pub interrupt_req: bool,

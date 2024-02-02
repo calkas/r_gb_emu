@@ -1,3 +1,11 @@
+mod constants;
+mod cpu;
+mod cpu_data;
+pub mod emulator_constants;
+mod instructions;
+mod iommu;
+mod peripheral;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -5,17 +13,10 @@ use cpu::Cpu;
 use iommu::IOMMU;
 use peripheral::{cartridge::Cartridge, joypad::JoypadInput, ppu::PictureProcessingUnit};
 
-mod constants;
-pub mod cpu;
-mod cpu_data;
-mod instructions;
-pub mod iommu;
-pub mod peripheral;
-
 pub struct GameBoyEmulator {
     cartridge: Rc<RefCell<Cartridge>>,
     ppu: Rc<RefCell<PictureProcessingUnit>>,
-    joypad: Rc<RefCell<JoypadInput>>,
+    pub joypad: Rc<RefCell<JoypadInput>>,
     iommu: Rc<RefCell<IOMMU>>,
     cpu: Cpu,
 }
@@ -48,6 +49,7 @@ impl GameBoyEmulator {
     pub fn load_cartridge(&mut self, cartridge_path: &str) {
         self.cartridge.borrow_mut().load(cartridge_path);
     }
+
     pub fn emulation_step(&mut self) -> u32 {
         self.cpu.process()
     }

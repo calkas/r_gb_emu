@@ -283,7 +283,6 @@ impl IOMMU {
     }
 
     fn oam_dma_transfer(&mut self, hi_source_address: u8) {
-        println!("DMA Transfer");
         let base_source_address = (hi_source_address as u16).rotate_left(8);
         let base_destination_address = *address::OAM.start();
         for i in 0..memory::VOAM_SIZE as u16 {

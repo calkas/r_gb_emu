@@ -42,23 +42,18 @@ impl Cpu {
 
     pub fn process(&mut self) -> u32 {
         //todo HALT handling support
-
         self.interrupt_handling();
         let opcode = self.fetch_byte();
 
-        //self.debug_dump_processing_instruction(opcode);
-
         if self.is_prefix_instruction(opcode) {
             let opcode = self.fetch_byte();
-            //self.debug_dump_processing_instruction(opcode);
             self.execute_cbprefixed_instruction(opcode);
         } else {
             self.execute(opcode);
         }
 
         self.iommu.borrow_mut().process(self.cycles);
-
-        //   1 machine cycle = 4 clock cycles
+        // 1 machine cycle = 4 clock cycles
         self.cycles
     }
 
@@ -82,7 +77,6 @@ impl Cpu {
         if !self.control.ime {
             return;
         }
-
         let intf = self.iommu.borrow_mut().read_byte(address::INTF_REGISTER);
         let inte = self.iommu.borrow_mut().read_byte(address::INTE_REGISTER);
 
@@ -163,7 +157,6 @@ impl Cpu {
                 arithmetic_logic::add_sp(&mut self.register.flag, &mut self.register.sp, val);
                 self.cycles = 16;
             }
-
             // .::ADC operation::.
             0x88 | 0x89 | 0x8A | 0x8B | 0x8C | 0x8D | 0x8F => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -187,7 +180,6 @@ impl Cpu {
                 arithmetic_logic::adc(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles = 8;
             }
-
             // .::SUB operation::.
             0x90 | 0x91 | 0x92 | 0x93 | 0x94 | 0x95 | 0x97 => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -212,7 +204,6 @@ impl Cpu {
                 arithmetic_logic::sub(&mut self.register.flag, &mut self.register.a, val, 0);
                 self.cycles = 8;
             }
-
             // .::SBC operation::.
             0x98 | 0x99 | 0x9A | 0x9B | 0x9C | 0x9D | 0x9F => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -236,7 +227,6 @@ impl Cpu {
                 arithmetic_logic::sbc(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles = 8;
             }
-
             // .::AND operation::.
             0xA0 | 0xA1 | 0xA2 | 0xA3 | 0xA4 | 0xA5 | 0xA7 => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -260,7 +250,6 @@ impl Cpu {
                 arithmetic_logic::and(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles = 8;
             }
-
             // .::XOR operation::.
             0xA8 | 0xA9 | 0xAA | 0xAB | 0xAC | 0xAD | 0xAF => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -284,7 +273,6 @@ impl Cpu {
                 arithmetic_logic::xor(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles = 8;
             }
-
             // .::OR operation::.
             0xB0 | 0xB1 | 0xB2 | 0xB3 | 0xB4 | 0xB5 | 0xB7 => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -308,7 +296,6 @@ impl Cpu {
                 arithmetic_logic::or(&mut self.register.flag, &mut self.register.a, val);
                 self.cycles = 8;
             }
-
             // .::CP operation::.
             0xB8 | 0xB9 | 0xBA | 0xBB | 0xBC | 0xBD | 0xBF => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -390,7 +377,6 @@ impl Cpu {
                     .write_byte(self.register.get_hl(), val);
                 self.cycles = 12;
             }
-
             // .::DEC operation::.
             0x0B => {
                 arithmetic_logic::dec_16(&mut self.register.b, &mut self.register.c);
@@ -448,19 +434,16 @@ impl Cpu {
                     .write_byte(self.register.get_hl(), val);
                 self.cycles = 12;
             }
-
             // .::DAA operation::.
             0x27 => {
                 arithmetic_logic::daa(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 4;
             }
-
             // .::CPL operation::.
             0x2F => {
                 arithmetic_logic::cpl(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 4;
             }
-
             // .::LD HL operation::.
             0xF8 => {
                 let val = self.fetch_byte() as i8;
@@ -643,7 +626,6 @@ impl Cpu {
                 load::ld(&mut self.register.e, value);
                 self.cycles = 8;
             }
-
             // LD H, r
             0x60 | 0x61 | 0x62 | 0x63 | 0x64 | 0x65 | 0x67 => {
                 let register_value = self.register.get_reg_value_from_opcode_range(
@@ -843,7 +825,6 @@ impl Cpu {
                 rotate_and_shift::rlc(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 8;
             }
-
             //RRC
             0x08 => {
                 rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.b);
@@ -880,7 +861,6 @@ impl Cpu {
                 rotate_and_shift::rrc(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 8;
             }
-
             // RL
             0x11 => {
                 rotate_and_shift::rl(&mut self.register.flag, &mut self.register.b);
@@ -917,7 +897,6 @@ impl Cpu {
                 rotate_and_shift::rl(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 8;
             }
-
             //RR
             0x18 => {
                 rotate_and_shift::rr(&mut self.register.flag, &mut self.register.b);
@@ -954,7 +933,6 @@ impl Cpu {
                 rotate_and_shift::rr(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 8;
             }
-
             //SLA
             0x20 => {
                 rotate_and_shift::sla(&mut self.register.flag, &mut self.register.b);
@@ -991,7 +969,6 @@ impl Cpu {
                 rotate_and_shift::sla(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 8;
             }
-
             //SRA
             0x28 => {
                 rotate_and_shift::sra(&mut self.register.flag, &mut self.register.b);
@@ -1028,7 +1005,6 @@ impl Cpu {
                 rotate_and_shift::sra(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 8;
             }
-
             //Swap
             0x30 => {
                 rotate_and_shift::swap(&mut self.register.flag, &mut self.register.b);
@@ -1065,7 +1041,6 @@ impl Cpu {
                 rotate_and_shift::swap(&mut self.register.flag, &mut self.register.a);
                 self.cycles = 8;
             }
-
             //SRL
             0x38 => {
                 rotate_and_shift::srl(&mut self.register.flag, &mut self.register.b);
@@ -1183,7 +1158,6 @@ impl Cpu {
                 single_bit_operation::bit(&mut self.register.flag, value, bit_number);
                 self.cycles = 12;
             }
-
             // RES
             0x80 | 0x81 | 0x82 | 0x83 | 0x84 | 0x85 | 0x87 => {
                 let register_address = self.register.get_reg_address_from_opcode_range(
@@ -1262,7 +1236,6 @@ impl Cpu {
                 self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles = 16;
             }
-
             // SET
             0xC0 | 0xC1 | 0xC2 | 0xC3 | 0xC4 | 0xC5 | 0xC7 => {
                 let register_address = self.register.get_reg_address_from_opcode_range(
@@ -1341,7 +1314,6 @@ impl Cpu {
                 self.iommu.borrow_mut().write_byte(address, value);
                 self.cycles = 16;
             }
-
             _ => panic!("single bit opcode [{:#02x?}] not supported!", opcode),
         }
     }
@@ -1358,7 +1330,6 @@ impl Cpu {
 
                 if *conditional_relative_jump.get(&opcode).unwrap() {
                     let offset = self.fetch_byte() as i8;
-                    //self.register.pc -= 1;
                     jump::relative_jump(&mut self.register.pc, offset);
                     self.cycles = 12;
                 } else {
@@ -1377,8 +1348,6 @@ impl Cpu {
 
                 if *conditional_jump.get(&opcode).unwrap() {
                     let address = self.fetch_word();
-                    //Because fetch_word() was called
-                    //self.register.pc -= 2;
                     jump::jump_to(&mut self.register.pc, address);
                     self.cycles = 16;
                 } else {
@@ -1417,7 +1386,6 @@ impl Cpu {
                     self.cycles = 12;
                 }
             }
-
             // RET
             0xC0 | 0xC8 | 0xC9 | 0xD0 | 0xD8 => {
                 let mut conditional_ret: HashMap<u8, bool> = HashMap::new();
@@ -1442,7 +1410,6 @@ impl Cpu {
                     self.cycles = 8;
                 }
             }
-
             //RETI
             0xD9 => {
                 jump::ret(
@@ -1454,7 +1421,6 @@ impl Cpu {
                 self.control.ime = true;
                 self.cycles = 16;
             }
-
             //RST
             0xC7 | 0xCF | 0xD7 | 0xDF | 0xE7 | 0xEF | 0xF7 | 0xFF => {
                 let mut reset_map: HashMap<u8, usize> = HashMap::new();
@@ -1474,10 +1440,8 @@ impl Cpu {
                     &mut self.iommu.borrow_mut(),
                     &mut self.register.sp,
                 );
-
                 self.cycles = 16;
             }
-
             _ => panic!("Jump opcode [{:#02x?}] not supported!", opcode),
         }
     }
@@ -1549,34 +1513,10 @@ impl Cpu {
     }
 
     // ------------------------ DEBUG ------------------------
-    fn debug_dump_processing_instruction(&self, opcode: u8) {
-        print!("\x1b[93m*** Processing Opcode: [{:#02x?}]", opcode);
-        if instructions::is_supported(opcode, &arithmetic_logic::ARITHMETIC_LOGIC_OPCODES) {
-            print!("[Arithmetic]\x1b[0m\n");
-        } else if instructions::is_supported(opcode, &load::LOAD_OPCODES) {
-            print!("[Load]\x1b[0m\n");
-        } else if instructions::is_supported(
-            opcode,
-            &rotate_and_shift::ACC_ROTATE_SHIFT_OPERATION_OPCODES,
-        ) {
-            print!("[Rotate and shift]\x1b[0m\n");
-        } else if instructions::is_supported(opcode, &jump::JUMP_OPCODES) {
-            print!("[Jump]\x1b[0m\n");
-        } else if instructions::is_supported(opcode, &cpu_control::CPU_CONTROL_OPCODES) {
-            print!("[Cpu control]\x1b[0m\n");
-        } else if instructions::is_supported(
-            opcode,
-            &single_bit_operation::SINGLE_BIT_OPERATION_OPCODES,
-        ) {
-            print!("[0xCB][Bit operation]\x1b[0m\n");
-        } else if instructions::is_supported(
-            opcode,
-            &rotate_and_shift::ROTATE_SHIFT_OPERATION_OPCODES,
-        ) {
-            print!("[0xCB][Rotate and shift]\x1b[0m\n");
-        }
-    }
-
+    /// # debug_dump_regs
+    /// Returns logfile in following format:
+    ///
+    /// `A:00 F:11 B:22 C:33 D:44 E:55 H:66 L:77 SP:8888 PC:9999 PCMEM:AA,BB,CC,DD`
     pub fn debug_dump_regs(&self) -> String {
         let mem_byte_0 = self.iommu.borrow_mut().read_byte(self.register.pc);
         let mem_byte_1 = self
