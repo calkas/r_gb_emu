@@ -13,11 +13,11 @@ pub static ARITHMETIC_LOGIC_OPCODES: [u8; 104] = [
 ];
 
 fn half_carry_on_addition(a: u8, b: u8) -> bool {
-    (((a & 0x0F) + (b & 0x0F)) & 0xF0) == 0x10
+    (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
 }
 
 fn half_carry_on_addition_16(a: u16, b: u16) -> bool {
-    (((a & 0x0FFF) + (b & 0x0FFF)) & 0x100) == 0x100
+    (((a & 0xFFF) + (b & 0xFFF)) & 0x1000) == 0x1000
 }
 
 fn half_carry_on_subtration(a: u8, b: u8) -> bool {
@@ -365,11 +365,11 @@ mod ut {
     #[test]
     fn add_hl_half_carry_test() {
         let mut register = Registers::default();
-        register.b = 0x01;
-        register.c = 0x80;
+        register.b = 0x4C;
+        register.c = 0x00;
 
-        register.h = 0x01;
-        register.l = 0x80;
+        register.h = 0x4C;
+        register.l = 0x00;
 
         register.flag.n = true;
 
@@ -382,7 +382,7 @@ mod ut {
             bc_reg_val,
         );
 
-        assert_eq!(0x300, register.get_hl());
+        assert_eq!(0x9800, register.get_hl());
         assert!(register.flag.h == true);
         assert!(register.flag.z == false);
         assert!(register.flag.c == false);
@@ -400,7 +400,7 @@ mod ut {
         add_sp(&mut register.flag, &mut register.sp, -1);
 
         assert_eq!(0x80, register.sp);
-        assert!(register.flag.h == false);
+        assert!(register.flag.h == true);
         assert!(register.flag.z == false);
         assert!(register.flag.c == true);
         assert!(register.flag.n == false);
