@@ -7,7 +7,7 @@
 A Gameboy emulator 🎮
 
 ## Useful Links
-### Docs
+### Documentation
 - [A journey into Gameboy Emulation Blog](https://robertovaccari.com/blog/2020_09_26_gameboy/)
 - [Codeslinger](http://www.codeslinger.co.uk/pages/projects/gameboy/lcd.html)
 - [EmuDev](https://emudev.de/gameboy-emulator/%e2%af%88-ppu-rgb-arrays-and-sdl/)
@@ -20,18 +20,21 @@ A Gameboy emulator 🎮
 programming](http://www.codeslinger.co.uk/files/emu.pdf)
 
 - [Nes emulator](https://bugzmanov.github.io/nes_ebook/chapter_2.html)
+- [Half carry flag](https://gist.github.com/meganesu/9e228b6b587decc783aa9be34ae27841)
 
-### Repos
+### Repository
 - [rboy](https://github.com/mvdnes/rboy/tree/master)
 - [rustyboy](https://github.com/daveallie/rustyboy)
 - [mohanson](https://github.com/mohanson/gameboy)
 
-### Libs
+### Libraries
 - [minifb](https://crates.io/crates/minifb)
 
 
 ### Debugging
 - [Gameboy doctor](https://github.com/robert/gameboy-doctor?tab=readme-ov-file)
+- [bgb emulator](https://bgb.bircd.org/)
+- [blargg-gb-tests](https://gbdev.gg8.se/files/roms/blargg-gb-tests/)
 
 Once you have your logfile (by running `07-jr,jp,call,ret,rst.gb`), feed it into Gameboy Doctor like so:
 
