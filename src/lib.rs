@@ -10,6 +10,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use cpu::Cpu;
+use emulator_constants::GameBoyKeys;
 use iommu::IOMMU;
 use peripheral::{cartridge::Cartridge, joypad::JoypadInput, ppu::PictureProcessingUnit};
 
@@ -52,6 +53,14 @@ impl GameBoyEmulator {
 
     pub fn emulation_step(&mut self) -> u32 {
         self.cpu.process()
+    }
+
+    pub fn button_pressed(&mut self, key: GameBoyKeys) {
+        self.joypad.borrow_mut().key_pressed(key);
+    }
+
+    pub fn button_released(&mut self, key: GameBoyKeys) {
+        self.joypad.borrow_mut().key_released(key);
     }
 
     /// # get_log
