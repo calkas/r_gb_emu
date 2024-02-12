@@ -450,10 +450,12 @@ impl PictureProcessingUnit {
             let color_id = pixel.get_color_id();
 
             let color = self.bgp_register.get_color(color_id);
-
-            self.out_frame_buffer[self.ly_register as usize]
-                [self.scx_register as usize + screen_col as usize] =
+            self.out_frame_buffer[self.ly_register as usize][screen_col as usize] =
                 [color.rgb().0, color.rgb().1, color.rgb().2];
+
+            // self.out_frame_buffer[self.ly_register as usize]
+            //     [self.scx_register as usize + screen_col as usize] =
+            //     [color.rgb().0, color.rgb().1, color.rgb().2];
         }
     }
 
@@ -468,8 +470,7 @@ impl PictureProcessingUnit {
         let win_cursor_y = self.internal_window_line_counter;
 
         for screen_col in 0..resolution::SCREEN_W as u8 {
-            let win_cursor_x = 0 - (self.wx_register as i8 - 7) + screen_col as i8;
-
+            let win_cursor_x: i16 = 0 - (self.wx_register as i16 - 7) + screen_col as i16;
             if win_cursor_x < 0 {
                 continue;
             }
@@ -479,7 +480,7 @@ impl PictureProcessingUnit {
 
             let color = self.bgp_register.get_color(color_id);
             //Todo screen_col or win_cursor_x
-            self.out_frame_buffer[self.ly_register as usize][win_cursor_x as usize] =
+            self.out_frame_buffer[self.ly_register as usize][screen_col as usize] =
                 [color.rgb().0, color.rgb().1, color.rgb().2];
         }
 

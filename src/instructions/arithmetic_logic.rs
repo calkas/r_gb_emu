@@ -30,7 +30,7 @@ fn half_carry_on_subtration_16(a: u16, b: u16) -> bool {
 /// # add
 /// ADD operation
 pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
-    let (new_value, did_overflow) = acc.overflowing_add(value + carry_value);
+    let (new_value, did_overflow) = acc.overflowing_add(value.wrapping_add(carry_value));
     flag.c = false;
     flag.z = false;
     flag.h = false;
@@ -44,7 +44,7 @@ pub fn add(flag: &mut FlagsRegister, acc: &mut u8, value: u8, carry_value: u8) {
         flag.z = true;
     }
 
-    if half_carry_on_addition(*acc, value + carry_value) {
+    if half_carry_on_addition(*acc, value.wrapping_add(carry_value)) {
         flag.h = true;
     }
     *acc = new_value;

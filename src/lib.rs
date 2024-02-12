@@ -68,7 +68,7 @@ impl GameBoyEmulator {
             sum_of_processed_cycles += self.emulate_step();
         }
 
-        println!("Duration {:?}", start_time_of_emulation_frame.elapsed());
+        //println!("Duration {:?}", start_time_of_emulation_frame.elapsed());
 
         let mut i: usize = 0;
 
