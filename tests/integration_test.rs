@@ -38,7 +38,7 @@ fn cpu_08_misc_instrs_test() {
     let exp_test_result = String::from("08-misc instrs\n\n\nPassed\n");
 
     for _ in 1..400000 {
-        let _ = gameboy.emulation_step();
+        let _ = gameboy.emulate_step();
     }
 
     assert_eq!(exp_test_result, gameboy.serial_out());
@@ -52,7 +52,7 @@ fn cpu_07_jr_jp_call_ret_rst_test() {
     let exp_test_result = String::from("07-jr,jp,call,ret,rst\n\n\nPassed\n");
 
     for _ in 1..400000 {
-        let _ = gameboy.emulation_step();
+        let _ = gameboy.emulate_step();
     }
 
     assert_eq!(exp_test_result, gameboy.serial_out());

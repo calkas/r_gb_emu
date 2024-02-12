@@ -10,9 +10,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use cpu::Cpu;
+use emulator_constants::resolution;
 use emulator_constants::GameBoyKeys;
 use iommu::IOMMU;
 use peripheral::{cartridge::Cartridge, joypad::JoypadInput, ppu::PictureProcessingUnit};
+use std::{thread, time};
 
 pub struct GameBoyEmulator {
     cartridge: Rc<RefCell<Cartridge>>,
@@ -51,8 +53,40 @@ impl GameBoyEmulator {
         self.cartridge.borrow_mut().load(cartridge_path);
     }
 
-    pub fn emulation_step(&mut self) -> u32 {
-        self.cpu.process()
+    pub fn emulate_step(&mut self) -> u32 {
+        self.cpu.process() // 0,000000238 * cycle
+    }
+    /// A frame consists of 154 scanlines. A dot = 4194304 Hhz
+    /// Frame 1/4194304 (0,000000238) * 456 * 154 = 0,016742706 = 16,74 ms <--60 fps
+    /// &mut [u32; resolution::SCREEN_W * resolution::SCREEN_H]
+    pub fn emulate_frame(&mut self, frame_buffer: &mut [u32]) {
+        let start_time_of_emulation_frame = time::Instant::now();
+        const NUMBER_OF_CYCLES_PER_FRAME: u32 = 70224;
+        let mut sum_of_processed_cycles: u32 = 0;
+
+        while sum_of_processed_cycles < NUMBER_OF_CYCLES_PER_FRAME {
+            sum_of_processed_cycles += self.emulate_step();
+        }
+
+        println!("Duration {:?}", start_time_of_emulation_frame.elapsed());
+
+        let mut i: usize = 0;
+
+        for pixel in self.ppu.borrow_mut().out_frame_buffer.iter() {
+            for v in pixel.iter() {
+                let b = u32::from(v[0]) << 16;
+                let g = u32::from(v[1]) << 8;
+                let r = u32::from(v[2]);
+                let a = 0xff00_0000;
+
+                frame_buffer[i] = a | b | g | r;
+                i += 1;
+            }
+        }
+
+        let frame_millis = time::Duration::from_millis(16);
+
+        //std::thread::sleep(frame_millis);
     }
 
     pub fn button_pressed(&mut self, key: GameBoyKeys) {

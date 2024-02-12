@@ -112,8 +112,3 @@ pub mod gb_memory_map {
         pub const JOYPAD: u16 = 0x0060;
     }
 }
-
-pub mod clock {
-    pub const CPU_CLOCK_FREQUENCY: u32 = 4194304;
-    pub const CYCLE_SPEED: u32 = CPU_CLOCK_FREQUENCY / 4; // 1_048_576 = 1MHz
-}

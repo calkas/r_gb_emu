@@ -337,13 +337,6 @@ impl PictureProcessingUnit {
         }
     }
 
-    pub fn check_lyc_ly_comparison(&mut self) {
-        if self.ly_register == self.lyc_register {
-            self.lcd_stat_register.lyc_flag = true;
-            self.lcd_stat_register.enable_ly_interrupt = true;
-        }
-    }
-
     fn get_tile_data_address(&self, tile_number: u8) -> u16 {
         let base_title_address = self.lcd_control_register.get_tile_data_base_address();
 
@@ -444,9 +437,7 @@ impl PictureProcessingUnit {
 
     fn draw_background_scanline(&mut self) {
         let tile_map_address = self.lcd_control_register.get_bg_tile_map_base_address();
-        let mut bg_cursor_x: u8 = self.scx_register;
         let bg_cursor_y: u8 = self.ly_register.wrapping_add(self.scy_register);
-
         //  -------> [x]
         // |
         // |   [row, col]
@@ -454,13 +445,14 @@ impl PictureProcessingUnit {
         // V [y]
 
         for screen_col in 0..resolution::SCREEN_W as u8 {
-            bg_cursor_x = bg_cursor_x.wrapping_add(screen_col);
-
+            let bg_cursor_x = screen_col.wrapping_add(self.scx_register);
             let mut pixel = self.get_tile_pixel(bg_cursor_x, bg_cursor_y, tile_map_address);
             let color_id = pixel.get_color_id();
 
             let color = self.bgp_register.get_color(color_id);
-            self.out_frame_buffer[self.ly_register as usize][screen_col as usize] =
+
+            self.out_frame_buffer[self.ly_register as usize]
+                [self.scx_register as usize + screen_col as usize] =
                 [color.rgb().0, color.rgb().1, color.rgb().2];
         }
     }
@@ -486,8 +478,8 @@ impl PictureProcessingUnit {
             let color_id = pixel.get_color_id();
 
             let color = self.bgp_register.get_color(color_id);
-
-            self.out_frame_buffer[self.ly_register as usize][screen_col as usize] =
+            //Todo screen_col or win_cursor_x
+            self.out_frame_buffer[self.ly_register as usize][win_cursor_x as usize] =
                 [color.rgb().0, color.rgb().1, color.rgb().2];
         }
 
