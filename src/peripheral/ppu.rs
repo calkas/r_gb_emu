@@ -354,12 +354,9 @@ impl PictureProcessingUnit {
         let oam_base_address = *address::OAM.start();
         // sprite occupies 4 bytes in the sprite attributes table
         let sprite_index = sprite_id * 4;
-        let y_position = (self.read_byte_from_hardware_register(oam_base_address + sprite_index)
-            as i8
-            - 16) as u8;
-        let x_position = (self.read_byte_from_hardware_register(oam_base_address + sprite_index + 1)
-            as i8
-            - 8) as u8;
+        let y = self.read_byte_from_hardware_register(oam_base_address + sprite_index) as i16 - 16;
+        let x =
+            self.read_byte_from_hardware_register(oam_base_address + sprite_index + 1) as i16 - 8;
         let tile_index = self.read_byte_from_hardware_register(oam_base_address + sprite_index + 2)
             & if self.lcd_control_register.obj_size {
                 0xFE
@@ -373,8 +370,8 @@ impl PictureProcessingUnit {
         Sprite {
             attribute: Attribute::from(raw_attribute),
             tile_index,
-            x_position,
-            y_position,
+            x_position: x as u8,
+            y_position: y as u8,
         }
     }
 
@@ -493,13 +490,19 @@ impl PictureProcessingUnit {
 
         for sprite in self.sprite_buffer.iter() {
             let sprite_y = if sprite.attribute.yflip {
-                (sprite_high as i8 - 1 - (line as i8 - sprite.y_position as i8)) as u8 as u16
+                (sprite_high as i16 - 1 - (line as i16 - sprite.y_position as i16)) as u16
             } else {
-                (line as i8 - sprite.y_position as i8) as u8 as u16
+                (line as i16 - sprite.y_position as i16) as u16
             };
 
             let sprite_data_address =
                 *address::VIDEO_RAM.start() + (sprite.tile_index as u16 * 16) + (sprite_y * 2);
+
+            if sprite_data_address == 0x8960 {
+                println!("DUPA");
+            }
+
+            println!("sprite data {:#06x?}", sprite_data_address);
 
             let low_byte = self.read_byte_from_hardware_register(sprite_data_address);
             let high_byte = self.read_byte_from_hardware_register(sprite_data_address + 1);
@@ -512,7 +515,7 @@ impl PictureProcessingUnit {
 
             // Walk through each pixel to be drawn.
             for pixel_col in 0..8 as u8 {
-                if sprite.x_position + pixel_col >= resolution::SCREEN_W as u8 {
+                if sprite.x_position as u16 + pixel_col as u16 >= resolution::SCREEN_W as u16 {
                     continue;
                 }
 
