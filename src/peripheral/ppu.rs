@@ -155,7 +155,7 @@ impl std::convert::From<LcdStatusRegister> for u8 {
             out_value |= 1_u8.rotate_left(2);
         }
         out_value |= register.ppu_mode;
-        return out_value;
+        out_value
     }
 }
 
@@ -382,7 +382,7 @@ impl PictureProcessingUnit {
         let sprite_high_size = self.lcd_control_register.get_sprite_high_size();
 
         for sprite_id in 0..graphics::MAX_NUMBER_OF_SPRITES {
-            if self.sprite_buffer.len() == graphics::MAX_SPRITES_PER_LINE as usize {
+            if self.sprite_buffer.len() == graphics::MAX_SPRITES_PER_LINE {
                 break;
             }
 
@@ -508,7 +508,7 @@ impl PictureProcessingUnit {
             };
 
             // Walk through each pixel to be drawn.
-            for pixel_col in 0..8 as u8 {
+            for pixel_col in 0..8_u8 {
                 if sprite.x_position as u16 + pixel_col as u16 >= resolution::SCREEN_W as u16 {
                     continue;
                 }

@@ -106,9 +106,7 @@ impl Default for Cartridge {
 }
 
 impl Cartridge {
-    pub fn load(&mut self, cartridge_path: &str) {
-        let path = Path::new(cartridge_path);
-
+    pub fn load(&mut self, path: &Path) {
         let mut cartridge_file = match File::open(path) {
             Ok(file) => file,
             Err(why) => panic!(
@@ -136,7 +134,7 @@ impl Cartridge {
             self.ram.reserve(self.controller.ram_size);
         }
 
-        self.show_status(&path);
+        self.show_status(path);
     }
 
     fn show_status(&mut self, cartridge_path: &Path) {

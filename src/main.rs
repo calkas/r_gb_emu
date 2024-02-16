@@ -1,4 +1,4 @@
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, Window};
 use r_gb_emu::emulator_constants::{resolution, GameBoyKeys};
 use r_gb_emu::GameBoyEmulator;
 
@@ -26,29 +26,33 @@ fn keyboard_handle_event(window: &Window, gameboy: &mut GameBoyEmulator) {
 fn main() {
     println!("\x1b[94m=========================\n..::Gameboy Emulator::..\n=========================\x1b[0m");
 
-    let mut gameboy = GameBoyEmulator::new();
+    let mut gameboy = GameBoyEmulator::default();
     gameboy.load_cartridge("roms/07-jr,jp,call,ret,rst.gb");
-    const WIDTH: usize = resolution::SCREEN_W;
-    const HEIGHT: usize = resolution::SCREEN_H;
 
-    let mut frame_buffer: Vec<u32> = vec![0x348feb; WIDTH * HEIGHT];
+    let mut frame_buffer: Vec<u32> = vec![0x348feb; resolution::SCREEN_W * resolution::SCREEN_H];
 
-    let mut option = minifb::WindowOptions::default();
-    option.resize = true;
-    option.scale = minifb::Scale::X4;
+    let window_option = minifb::WindowOptions {
+        resize: true,
+        scale: minifb::Scale::X4,
+        ..Default::default()
+    };
+    let window_name = String::from("r_gb_emu - ") + gameboy.cartridge_name();
 
-    let mut window = Window::new("r_gb_emu", WIDTH, HEIGHT, option).unwrap_or_else(|e| {
+    let mut window = Window::new(
+        &window_name,
+        resolution::SCREEN_W,
+        resolution::SCREEN_H,
+        window_option,
+    )
+    .unwrap_or_else(|e| {
         panic!("{}", e);
     });
-
-    // Limit to max ~60 fps update rate
-    //window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         gameboy.emulate_frame(frame_buffer.as_mut_slice());
 
         window
-            .update_with_buffer(&frame_buffer, WIDTH, HEIGHT)
+            .update_with_buffer(&frame_buffer, resolution::SCREEN_W, resolution::SCREEN_H)
             .unwrap();
 
         keyboard_handle_event(&window, &mut gameboy);
