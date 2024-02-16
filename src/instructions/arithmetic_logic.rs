@@ -252,7 +252,7 @@ pub fn daa(flag: &mut FlagsRegister, acc: &mut u8) {
         correction |= 0x06;
     }
 
-    if !flag.h {
+    if !flag.n {
         if a & 0x0F > 0x09 {
             correction |= 0x06;
         };
