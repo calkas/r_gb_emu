@@ -1,31 +1,44 @@
+use std::collections::HashMap;
+
 use super::HardwareAccessible;
-use crate::constants::gb_memory_map::address;
+use crate::constants::gb_memory_map::address::io_hardware_register;
 use crate::emulator_constants::GameBoyKeys;
 
 mod joypad_state_register {
     pub const ALL_KEYS_NOT_PRESSED: u8 = 0xFF;
     pub const BUTTONS_MODE_REQUEST: u8 = 0xDF;
     pub const D_PAD_MODE_REQUEST: u8 = 0xEF;
-    pub const KEY_0: u8 = 0xFE;
-    pub const KEY_1: u8 = 0xFD;
-    pub const KEY_2: u8 = 0xFB;
-    pub const KEY_3: u8 = 0xF7;
+    pub const KEY_0_VALUE: u8 = 0xFE;
+    pub const KEY_1_VALUE: u8 = 0xFD;
+    pub const KEY_2_VALUE: u8 = 0xFB;
+    pub const KEY_3_VALUE: u8 = 0xF7;
 }
 
 pub struct JoypadInput {
-    data_register: u8,
+    key_data_register: HashMap<u8, u8>,
+    select: u8,
     pub interrupt_req: bool,
 }
 
 impl JoypadInput {
     pub fn default() -> Self {
+        let mut map: HashMap<u8, u8> = HashMap::new();
+        map.insert(
+            joypad_state_register::D_PAD_MODE_REQUEST,
+            joypad_state_register::ALL_KEYS_NOT_PRESSED,
+        );
+        map.insert(
+            joypad_state_register::BUTTONS_MODE_REQUEST,
+            joypad_state_register::ALL_KEYS_NOT_PRESSED,
+        );
         JoypadInput {
-            data_register: joypad_state_register::ALL_KEYS_NOT_PRESSED,
+            key_data_register: map,
+            select: 0xFF,
             interrupt_req: false,
         }
     }
 
-    fn get_select_mode_value(&self, key: GameBoyKeys) -> u8 {
+    fn get_select_mode(&self, key: GameBoyKeys) -> u8 {
         let select_button = [
             GameBoyKeys::A,
             GameBoyKeys::B,
@@ -33,66 +46,52 @@ impl JoypadInput {
             GameBoyKeys::Select,
         ];
 
-        let select_dpad = [
-            GameBoyKeys::Right,
-            GameBoyKeys::Left,
-            GameBoyKeys::Down,
-            GameBoyKeys::Up,
-        ];
-
         if select_button.contains(&key) {
             joypad_state_register::BUTTONS_MODE_REQUEST
-        } else if select_dpad.contains(&key) {
-            joypad_state_register::D_PAD_MODE_REQUEST
         } else {
-            panic!("[JOYPAD ERROR] Unsupported key");
+            joypad_state_register::D_PAD_MODE_REQUEST
         }
     }
 
     fn get_key_value(&self, key: GameBoyKeys) -> u8 {
         match key {
-            GameBoyKeys::A | GameBoyKeys::Right => joypad_state_register::KEY_0,
-            GameBoyKeys::B | GameBoyKeys::Left => joypad_state_register::KEY_1,
-            GameBoyKeys::Select | GameBoyKeys::Up => joypad_state_register::KEY_2,
-            GameBoyKeys::Start | GameBoyKeys::Down => joypad_state_register::KEY_3,
+            GameBoyKeys::A | GameBoyKeys::Right => joypad_state_register::KEY_0_VALUE,
+            GameBoyKeys::B | GameBoyKeys::Left => joypad_state_register::KEY_1_VALUE,
+            GameBoyKeys::Select | GameBoyKeys::Up => joypad_state_register::KEY_2_VALUE,
+            GameBoyKeys::Start | GameBoyKeys::Down => joypad_state_register::KEY_3_VALUE,
         }
     }
 
     pub fn key_pressed(&mut self, key: GameBoyKeys) {
-        let mode = self.get_select_mode_value(key);
         let key_val = self.get_key_value(key);
-        let mut new_key_value = self.data_register;
-        new_key_value &= mode & key_val;
-        self.update(new_key_value);
-    }
-    pub fn key_released(&mut self, key: GameBoyKeys) {
-        let mode = self.get_select_mode_value(key);
-        let key_val = self.get_key_value(key);
-        self.data_register |= !mode | !key_val;
+        let select_mode = self.get_select_mode(key);
+
+        let old_value = self.key_data_register[&select_mode];
+        if old_value == joypad_state_register::ALL_KEYS_NOT_PRESSED
+            && key_val != joypad_state_register::ALL_KEYS_NOT_PRESSED
+        {
+            self.interrupt_req = true;
+        }
+        *self.key_data_register.get_mut(&select_mode).unwrap() &= key_val;
     }
 
-    fn update(&mut self, new_key_value: u8) {
-        // only request interupt if the button just pressed is
-        if self.data_register == joypad_state_register::ALL_KEYS_NOT_PRESSED {
-            if self.data_register != new_key_value {
-                self.interrupt_req = true;
-            }
-        } else {
-            //But dpad should be treated different
-            if !new_key_value & !joypad_state_register::D_PAD_MODE_REQUEST
-                == !joypad_state_register::D_PAD_MODE_REQUEST
-            {
-                self.interrupt_req = true;
-            }
-        }
-        self.data_register = new_key_value;
+    pub fn key_released(&mut self, key: GameBoyKeys) {
+        let mode = self.get_select_mode(key);
+        let key_val = self.get_key_value(key);
+        *self.key_data_register.get_mut(&mode).unwrap() |= !key_val;
     }
 }
 
 impl HardwareAccessible for JoypadInput {
     fn read_byte_from_hardware_register(&self, address: u16) -> u8 {
         match address {
-            address::io_hardware_register::JOYPAD_INPUT => self.data_register,
+            io_hardware_register::JOYPAD_INPUT => {
+                if self.key_data_register.contains_key(&self.select) {
+                    self.select & self.key_data_register[&self.select]
+                } else {
+                    self.select
+                }
+            }
             _ => panic!(
                 "[JOYPAD ERROR][Read] Unsupported address: [{:#06x?}]",
                 address
@@ -102,7 +101,7 @@ impl HardwareAccessible for JoypadInput {
 
     fn write_byte_to_hardware_register(&mut self, address: u16, data: u8) {
         match address {
-            address::io_hardware_register::JOYPAD_INPUT => self.update(data | 0xC0),
+            io_hardware_register::JOYPAD_INPUT => self.select = 0xCF | (data & 0x30),
             _ => panic!(
                 "[JOYPAD ERROR][Write] Unsupported address: [{:#06x?}]",
                 address
@@ -119,19 +118,36 @@ mod ut {
         let mut joypad = JoypadInput::default();
 
         let button_keys = [
-            (GameBoyKeys::A, joypad_state_register::KEY_0),
-            (GameBoyKeys::B, joypad_state_register::KEY_1),
-            (GameBoyKeys::Select, joypad_state_register::KEY_2),
-            (GameBoyKeys::Start, joypad_state_register::KEY_3),
+            (GameBoyKeys::A, joypad_state_register::KEY_0_VALUE),
+            (GameBoyKeys::B, joypad_state_register::KEY_1_VALUE),
+            (GameBoyKeys::Select, joypad_state_register::KEY_2_VALUE),
+            (GameBoyKeys::Start, joypad_state_register::KEY_3_VALUE),
         ];
+
+        joypad.write_byte_to_hardware_register(
+            io_hardware_register::JOYPAD_INPUT,
+            joypad_state_register::BUTTONS_MODE_REQUEST,
+        );
 
         for key in button_keys {
             joypad.key_pressed(key.0);
+
             assert_eq!(
                 key.1 & joypad_state_register::BUTTONS_MODE_REQUEST,
-                joypad.data_register
+                joypad.read_byte_from_hardware_register(io_hardware_register::JOYPAD_INPUT)
             );
+
+            assert!(joypad.interrupt_req == true);
+
             joypad.key_released(key.0);
+
+            assert_eq!(
+                joypad_state_register::ALL_KEYS_NOT_PRESSED
+                    & joypad_state_register::BUTTONS_MODE_REQUEST,
+                joypad.read_byte_from_hardware_register(io_hardware_register::JOYPAD_INPUT)
+            );
+
+            joypad.interrupt_req = false;
         }
     }
 
@@ -140,105 +156,36 @@ mod ut {
         let mut joypad = JoypadInput::default();
 
         let dpad_keys = [
-            (GameBoyKeys::Right, joypad_state_register::KEY_0),
-            (GameBoyKeys::Left, joypad_state_register::KEY_1),
-            (GameBoyKeys::Up, joypad_state_register::KEY_2),
-            (GameBoyKeys::Down, joypad_state_register::KEY_3),
+            (GameBoyKeys::Right, joypad_state_register::KEY_0_VALUE),
+            (GameBoyKeys::Left, joypad_state_register::KEY_1_VALUE),
+            (GameBoyKeys::Up, joypad_state_register::KEY_2_VALUE),
+            (GameBoyKeys::Down, joypad_state_register::KEY_3_VALUE),
         ];
+
+        joypad.write_byte_to_hardware_register(
+            io_hardware_register::JOYPAD_INPUT,
+            joypad_state_register::D_PAD_MODE_REQUEST,
+        );
 
         for key in dpad_keys {
             joypad.key_pressed(key.0);
+
             assert_eq!(
                 key.1 & joypad_state_register::D_PAD_MODE_REQUEST,
-                joypad.data_register
+                joypad.read_byte_from_hardware_register(io_hardware_register::JOYPAD_INPUT)
             );
+
+            assert!(joypad.interrupt_req == true);
+
             joypad.key_released(key.0);
+
+            assert_eq!(
+                joypad_state_register::ALL_KEYS_NOT_PRESSED
+                    & joypad_state_register::D_PAD_MODE_REQUEST,
+                joypad.read_byte_from_hardware_register(io_hardware_register::JOYPAD_INPUT)
+            );
+
+            joypad.interrupt_req = false;
         }
-    }
-
-    #[test]
-    fn interupt_button_select_test() {
-        let mut joypad = JoypadInput::default();
-
-        assert_eq!(
-            joypad_state_register::ALL_KEYS_NOT_PRESSED,
-            joypad.data_register
-        );
-
-        // Press A
-        joypad.key_pressed(GameBoyKeys::A);
-        assert!(joypad.interrupt_req == true);
-        assert_eq!(0xDE, joypad.data_register);
-
-        joypad.interrupt_req = false;
-
-        // Press A again - should nothing happen
-        joypad.key_pressed(GameBoyKeys::A);
-        assert!(joypad.interrupt_req == false);
-
-        // Release A
-        joypad.key_released(GameBoyKeys::A);
-        assert_eq!(
-            joypad_state_register::ALL_KEYS_NOT_PRESSED,
-            joypad.data_register
-        );
-
-        // Press A
-        joypad.key_pressed(GameBoyKeys::A);
-        assert!(joypad.interrupt_req == true);
-        assert_eq!(0xDE, joypad.data_register);
-    }
-
-    #[test]
-    fn interupt_d_pad_select_test() {
-        let mut joypad = JoypadInput::default();
-
-        assert_eq!(
-            joypad_state_register::ALL_KEYS_NOT_PRESSED,
-            joypad.data_register
-        );
-
-        // Press Up
-        joypad.key_pressed(GameBoyKeys::Up);
-        assert!(joypad.interrupt_req == true);
-        assert_eq!(0xEB, joypad.data_register);
-
-        joypad.interrupt_req = false;
-
-        // Press Up again - should be interrupt
-        joypad.key_pressed(GameBoyKeys::Up);
-        assert!(joypad.interrupt_req == true);
-
-        joypad.interrupt_req = false;
-
-        // Press Up release
-        joypad.key_released(GameBoyKeys::Up);
-        assert!(joypad.interrupt_req == false);
-
-        assert_eq!(
-            joypad_state_register::ALL_KEYS_NOT_PRESSED,
-            joypad.data_register
-        );
-    }
-
-    #[test]
-    fn read_write_test() {
-        let mut joypad = JoypadInput::default();
-        assert_eq!(
-            joypad_state_register::ALL_KEYS_NOT_PRESSED,
-            joypad.read_byte_from_hardware_register(address::io_hardware_register::JOYPAD_INPUT)
-        );
-
-        let exp_key_value =
-            joypad_state_register::KEY_0 & joypad_state_register::D_PAD_MODE_REQUEST;
-        joypad.write_byte_to_hardware_register(
-            address::io_hardware_register::JOYPAD_INPUT,
-            exp_key_value,
-        );
-
-        assert_eq!(
-            exp_key_value,
-            joypad.read_byte_from_hardware_register(address::io_hardware_register::JOYPAD_INPUT)
-        );
     }
 }

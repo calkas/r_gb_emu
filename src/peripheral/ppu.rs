@@ -498,12 +498,6 @@ impl PictureProcessingUnit {
             let sprite_data_address =
                 *address::VIDEO_RAM.start() + (sprite.tile_index as u16 * 16) + (sprite_y * 2);
 
-            if sprite_data_address == 0x8960 {
-                println!("DUPA");
-            }
-
-            println!("sprite data {:#06x?}", sprite_data_address);
-
             let low_byte = self.read_byte_from_hardware_register(sprite_data_address);
             let high_byte = self.read_byte_from_hardware_register(sprite_data_address + 1);
 

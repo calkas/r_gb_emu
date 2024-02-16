@@ -2,8 +2,8 @@
 pub enum GameBoyKeys {
     Right,
     Left,
-    Down,
     Up,
+    Down,
     A,
     B,
     Select,
