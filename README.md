@@ -4,8 +4,57 @@
 
 ![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
 
-A Gameboy emulator 🎮
 
+A Gameboy emulator written in Rust 🎮
+
+## Screens
+
+### Games
+
+| Game Name    | Result                              |
+|--------------|-------------------------------------|
+| Tetris       | ![img](./docs/imgs/tetris.png)      |
+
+
+### Tests
+
+| Test Name       | Result                              |
+|-----------------|-------------------------------------|
+| cpu_instrs_07   | ![img](./docs/imgs/test_07.png)     |
+| cpu_instrs_08   | ![img](./docs/imgs/test_08.png)     |
+
+## Gameplay Keys
+
+| Keyboard Key       | Emulator Key       |
+| ------------------ | ------------------ |
+| Up/Down/Left/Right | Up/Down/Left/Right |
+| Z                  | A                  |
+| X                  | B                  |
+| Space              | Select             |
+| Enter              | Start              |
+
+
+
+
+## Knowledge
+
+60fps code
+```cpp
+
+while(1) {
+    deltaTime = CurrentTime()-OldTime;
+    oldTime = CurrentTime();
+    accumulator += deltaTime;
+    while(accumulator > 1.0/60.0){
+        update();
+        accumulator -= 1.0/60.0;
+    }
+    render();
+    display();
+}
+```
+
+----------------------------------------------------------------------------------------------
 ## Useful Links
 ### Documentation
 - [A journey into Gameboy Emulation Blog](https://robertovaccari.com/blog/2020_09_26_gameboy/)
