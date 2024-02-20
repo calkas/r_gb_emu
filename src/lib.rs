@@ -13,7 +13,7 @@ use peripheral::{cartridge::Cartridge, joypad::JoypadInput, ppu::PictureProcessi
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
-use std::time;
+use std::{thread, time};
 
 pub struct GameBoyEmulator {
     cartridge: Rc<RefCell<Cartridge>>,
@@ -87,8 +87,6 @@ impl GameBoyEmulator {
             sum_of_processed_cycles += self.emulate_step();
         }
 
-        //println!("Duration {:?}", start_time_of_emulation_frame.elapsed());
-
         let mut frame_pixel_id: usize = 0;
 
         for ppu_pixel in self.ppu.borrow_mut().out_frame_buffer.iter() {
@@ -101,6 +99,14 @@ impl GameBoyEmulator {
                 frame_pixel_id += 1;
             }
         }
+        let end_of_processed_time = start_time_of_emulation_frame.elapsed();
+
+        if end_of_processed_time < time::Duration::from_micros(16743) {
+            let sleeping_time = time::Duration::from_micros(16743) - end_of_processed_time;
+            thread::sleep(sleeping_time);
+        }
+
+        //println!("Duration {:?}", start_time_of_emulation_frame.elapsed());
     }
 
     pub fn button_pressed(&mut self, key: GameBoyKeys) {
