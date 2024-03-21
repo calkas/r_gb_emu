@@ -33,7 +33,7 @@ fn cpu_instruction_behavior_test() {
 #[test]
 fn cpu_08_misc_instrs_test() {
     let mut gameboy = GameBoyEmulator::new();
-    gameboy.load_cartridge("roms/08-misc instrs.gb");
+    gameboy.load_cartridge("roms/08-misc instrs.gb").unwrap();
 
     let exp_test_result = String::from("08-misc instrs\n\n\nPassed\n");
 
@@ -47,7 +47,9 @@ fn cpu_08_misc_instrs_test() {
 #[test]
 fn cpu_07_jr_jp_call_ret_rst_test() {
     let mut gameboy = GameBoyEmulator::new();
-    gameboy.load_cartridge("roms/07-jr,jp,call,ret,rst.gb");
+    gameboy
+        .load_cartridge("roms/07-jr,jp,call,ret,rst.gb")
+        .unwrap();
 
     let exp_test_result = String::from("07-jr,jp,call,ret,rst\n\n\nPassed\n");
 

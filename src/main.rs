@@ -1,3 +1,4 @@
+//use argparse::ArgumentParser;
 use minifb::{Key, Window};
 use r_gb_emu::emulator_constants::{resolution, GameBoyKeys};
 use r_gb_emu::GameBoyEmulator;
@@ -22,12 +23,41 @@ fn keyboard_handle_event(window: &Window, gameboy: &mut GameBoyEmulator) {
         }
     }
 }
+/// # parse_input_args
+/// Parse following input:
+/// ./r_gb_emu --rom /r_gb_emu/roms/t.gb
+fn parse_input_args() -> String {
+    let mut rom_path = String::new();
+    {
+        let mut arg_parser = argparse::ArgumentParser::new();
+        arg_parser.set_description("Gameboy Emulator");
+        arg_parser
+            .refer(&mut rom_path)
+            .add_option(&["--rom"], argparse::Store, "Rom path");
+        arg_parser.parse_args_or_exit();
+    }
+    rom_path
+}
 
 fn main() {
+    let rom_path = parse_input_args();
+
     println!("\x1b[94m=========================\n..::Gameboy Emulator::..\n=========================\x1b[0m");
 
     let mut gameboy = GameBoyEmulator::default();
-    gameboy.load_cartridge("roms/07-jr,jp,call,ret,rst.gb");
+    let status = gameboy.load_cartridge(&rom_path);
+    if status.is_err() {
+        println!(
+            " * [Error] Cannot open the following ROM path: {} ",
+            rom_path
+        );
+        println!(
+            "\x1b[96m=========================\n      ..::END::..      \n=========================\x1b[0m"
+        );
+        return;
+    }
+    gameboy.show_cartridge_status();
+    println!("\x1b[93mEmulation starts...\x1b[0m");
 
     let mut frame_buffer: Vec<u32> = vec![0x348feb; resolution::SCREEN_W * resolution::SCREEN_H];
 
@@ -36,7 +66,7 @@ fn main() {
         scale: minifb::Scale::X4,
         ..Default::default()
     };
-    let window_name = String::from("r_gb_emu - ") + gameboy.cartridge_name();
+    let window_name = String::from("r_gb_emu - ") + &gameboy.get_cartridge_name();
 
     let mut window = Window::new(
         &window_name,
@@ -57,8 +87,7 @@ fn main() {
 
         keyboard_handle_event(&window, &mut gameboy);
     }
-
     println!(
-        "\x1b[96m=========================\n      ..::END::..      \n=========================\x1b[0m"
+        "\n\x1b[96m=========================\n      ..::END::..      \n=========================\x1b[0m"
     );
 }

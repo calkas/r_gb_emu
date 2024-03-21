@@ -11,13 +11,13 @@ use emulator_constants::GameBoyKeys;
 use iommu::IOMMU;
 use peripheral::{cartridge::Cartridge, joypad::JoypadInput, ppu::PictureProcessingUnit};
 use std::cell::RefCell;
+use std::io::Write;
 use std::path::Path;
 use std::rc::Rc;
 use std::{thread, time};
 
 pub struct GameBoyEmulator {
     cartridge: Rc<RefCell<Cartridge>>,
-    cartridge_name: String,
     ppu: Rc<RefCell<PictureProcessingUnit>>,
     pub joypad: Rc<RefCell<JoypadInput>>,
     iommu: Rc<RefCell<IOMMU>>,
@@ -48,7 +48,6 @@ impl GameBoyEmulator {
 
         Self {
             cartridge,
-            cartridge_name: String::new(),
             ppu,
             joypad,
             iommu,
@@ -57,15 +56,20 @@ impl GameBoyEmulator {
     }
 
     /// # load_cartridge
-    pub fn load_cartridge(&mut self, cartridge_path: &str) {
+    pub fn load_cartridge(&mut self, cartridge_path: &str) -> std::io::Result<()> {
         let path = Path::new(cartridge_path);
-        self.cartridge_name =
-            String::from(path.file_name().unwrap().to_os_string().to_str().unwrap());
-        self.cartridge.borrow_mut().load(path);
+        self.cartridge.borrow_mut().load(path)?;
+        Ok(())
     }
 
-    pub fn cartridge_name(&self) -> &String {
-        &self.cartridge_name
+    /// # show_cartridge_status
+    pub fn show_cartridge_status(&self) {
+        self.cartridge.borrow_mut().show_status();
+    }
+
+    /// # get_cartridge_name
+    pub fn get_cartridge_name(&self) -> String {
+        self.cartridge.borrow_mut().name.clone()
     }
 
     /// # emulate_step
@@ -106,7 +110,9 @@ impl GameBoyEmulator {
             thread::sleep(sleeping_time);
         }
 
-        //println!("Duration {:?}", start_time_of_emulation_frame.elapsed());
+        let fps = 1.0 / start_time_of_emulation_frame.elapsed().as_secs_f32();
+        print!("\rFPS:{:?} ", fps);
+        let _ = std::io::stdout().flush();
     }
 
     pub fn button_pressed(&mut self, key: GameBoyKeys) {

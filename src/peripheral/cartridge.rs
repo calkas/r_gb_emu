@@ -1,4 +1,6 @@
 use std::fs::File;
+use std::io;
+use std::io::Error;
 use std::io::Read;
 use std::path::Path;
 
@@ -93,6 +95,8 @@ pub struct Cartridge {
     rom: Vec<u8>,
     ram: Vec<u8>,
     controller: CartridgeController,
+    pub name: String,
+    checksum_validation_status: bool,
 }
 
 impl Default for Cartridge {
@@ -101,24 +105,24 @@ impl Default for Cartridge {
             rom: Default::default(),
             ram: Default::default(),
             controller: CartridgeController::new(),
+            name: String::new(),
+            checksum_validation_status: false,
         }
     }
 }
 
 impl Cartridge {
-    pub fn load(&mut self, path: &Path) {
-        let mut cartridge_file = match File::open(path) {
-            Ok(file) => file,
-            Err(why) => panic!(
-                "[CARTRIDGE ERROR] Couldn't open {}: {}",
-                path.display(),
-                why
-            ),
-        };
+    pub fn load(&mut self, path: &Path) -> std::io::Result<()> {
+        let mut cartridge_file = File::open(path)?;
+        cartridge_file.read_to_end(&mut self.rom)?;
 
-        if cartridge_file.read_to_end(&mut self.rom).is_err() {
-            panic!("[CARTRIDGE ERROR] Couldn't read the Rom file.");
+        self.checksum_validation_status = self.is_checksum_valid();
+        if !self.checksum_validation_status {
+            let error = Error::new(io::ErrorKind::Other, "Rom checksum is not valid");
+            return Err(error);
         }
+
+        self.name = String::from(path.file_name().unwrap().to_os_string().to_str().unwrap());
 
         self.controller
             .determine_cartridge_type(self.rom[address::cartridge_header::CARTRIDGE_TYPE as usize]);
@@ -134,17 +138,17 @@ impl Cartridge {
             self.ram.reserve(self.controller.ram_size);
         }
 
-        self.show_status(path);
+        Ok(())
     }
 
-    fn show_status(&mut self, cartridge_path: &Path) {
+    pub fn show_status(&self) {
         let catridge_type = match self.controller.cart_type {
             CartridgeType::RomOnly => "Rom only",
             CartridgeType::Mbc1 => "MBC1",
             CartridgeType::Mbc2 => "MBC2",
         };
-        println!("-----------------------------");
-        println!("Cartridge: {}", cartridge_path.display());
+        //println!("-----------------------------");
+        println!("Cartridge: {}", self.name);
         println!("Cartridge loaded:\x1b[92m Success \x1b[0m");
         println!(" * Cartridge Type: \x1b[96m{}\x1b[0m", catridge_type);
         println!(
@@ -156,13 +160,13 @@ impl Cartridge {
             self.controller.ram_size, self.controller.number_of_ram_banks
         );
 
-        if self.is_checksum_valid() {
+        if self.checksum_validation_status {
             println!(" * Checksum:\x1b[92m Success\x1b[0m");
         } else {
             println!(" * Checksum: Error");
         }
 
-        println!("-----------------------------");
+        //println!("-----------------------------");
     }
 
     fn is_checksum_valid(&mut self) -> bool {

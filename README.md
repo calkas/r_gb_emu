@@ -7,6 +7,10 @@
 
 A Gameboy emulator written in Rust 🎮
 
+## Run
+
+> ./r_gb_emu --rom /r_gb_emu/roms/t.gb
+
 ## Screens
 
 ### Games
